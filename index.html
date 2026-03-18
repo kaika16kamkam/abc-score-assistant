@@ -1,29 +1,34 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
   <meta name="robots" content="noindex">
   <meta charset="UTF-8">
   <title>ABC SCORE ASSISTANT</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <h1>MIDI → ABC</h1>
-  <input type="file" id="file" accept=".mid,.midi">
-  <pre id="output" style="white-space: pre-wrap;"></pre>
+  <header>
+    <h1>ABC SCORE ASSISTANT</h1>
+  </header>
 
-  <script>
-    document.getElementById('file').onchange = async (e) => {
-      const file = e.target.files[0]
-      if (!file) return
+  <div class="feature">
+    <h2>MIDI → ABC</h2>
 
-      try {
-        const arrayBuffer = await file.arrayBuffer()
-        document.getElementById('output').textContent =
-          "読み込み成功: " + file.name
-      } catch (err) {
-        document.getElementById('output').textContent =
-          "エラー: " + err.message
-      }
-    }
-  </script>
+    <div class="upload-section" id="midiUploadSection">
+      <h3>Upload MIDI(demo)</h3>
+      <input type="file" id="file" accept=".mid,.midi">
+      <pre id="output" style="white-space: pre-wrap;"></pre>
+    </div>
+  </div>
+
+  <div class="feature">
+    <h2>Find Avoid Notes in ABC</h2>
+  </div>
+
+  <div class="feature">
+    <h2>Play ABC</h2>
+  </div>
+
+  <script src="js/app.js"></script>
 </body>
 </html>
