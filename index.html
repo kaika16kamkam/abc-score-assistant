@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="robots" content="noindex">
+  <meta charset="UTF-8">
+  <title>ABC SCORE ASSISTANT</title>
+</head>
+<body>
+  <h1>MIDI → ABC</h1>
+  <input type="file" id="file" accept=".mid,.midi">
+  <pre id="output" style="white-space: pre-wrap;"></pre>
+
+  <script>
+    document.getElementById('file').onchange = async (e) => {
+      const file = e.target.files[0]
+      if (!file) return
+
+      try {
+        const arrayBuffer = await file.arrayBuffer()
+        document.getElementById('output').textContent =
+          "読み込み成功: " + file.name
+      } catch (err) {
+        document.getElementById('output').textContent =
+          "エラー: " + err.message
+      }
+    }
+  </script>
+</body>
+</html>
