@@ -12,14 +12,25 @@
   </header>
 
   <div class="feature">
-    <h2>MIDI → ABC</h2>
+  <h2>MIDI → ABC</h2>
 
-    <div class="upload-section" id="midiUploadSection">
-      <h3>Upload MIDI(demo)</h3>
-      <input type="file" id="file" accept=".mid,.midi">
-      <pre id="output" style="white-space: pre-wrap;"></pre>
+  <div class="upload-section" id="midiUploadSection">
+    <h3>Upload MIDI(demo)</h3>
+    
+    <div class="requirements" style="font-size: 0.9em; color: #666; background: #f9f9f9; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+      <strong>MIDIファイルの要件:</strong>
+      <ul style="margin: 5px 0; padding-left: 20px;">
+        <li>音符を含むトラックは最大2つまで</li>
+        <li>和音を含むトラックは「コード」として判定</li>
+        <li>和音を含まないトラックは「メロディ」として判定</li>
+        <li>コード・メロディ各トラックは最大1つずつ</li>
+      </ul>
     </div>
+
+    <input type="file" id="file" accept=".mid,.midi">
+    <pre id="output" style="white-space: pre-wrap; margin-top: 15px; border: 1px solid #ddd; padding: 10px; min-height: 50px;"></pre>
   </div>
+</div>
 
   <div class="feature">
     <h2>Find Avoid Notes in ABC</h2>
@@ -29,6 +40,7 @@
     <h2>Play ABC</h2>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/midi-parser-js@4.0.4/src/main.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
