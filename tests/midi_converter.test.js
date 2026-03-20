@@ -6,6 +6,8 @@ import {
   generateAbcHeader, 
   extractTimeSignature,
   extractTempo, 
+  getNoteName,
+  convertTrackToAbc,
   analyzeTracks 
 } from '../js/app.js';
 
@@ -67,3 +69,19 @@ describe('MIDIファイル読み込みとバリデーションのテスト', () 
   });
 });
 
+describe('ABC音符列生成のテスト', () => {
+  it('ノート配列が正しいABC文字列（音名+長さ）に変換されること', () => {
+    const mockNotes = [
+      { tick: 0, note: 60 },   // C (次まで480tick) -> C2
+      { tick: 480, note: 62 }, // D (次まで240tick) -> D
+      { tick: 720, note: 64 }  // E (最後: 480tick分とする) -> E2
+    ];
+    const resolution = 480;
+    
+    const result = convertTrackToAbc(mockNotes, resolution);
+    
+    expect(result).toContain('C2');
+    expect(result).toContain('D '); // 半角スペースを含む
+    expect(result).toContain('E2'); // E4からE2に修正
+  });
+});

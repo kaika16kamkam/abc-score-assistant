@@ -12,7 +12,7 @@ export const MIDI_EVENT_NOTE_ON = 9;
  * MIDIノート番号に対応する音名リスト
  * @type {string[]}
  */
-export const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+export const ABC_NOTE_NAMES = ["C", "^C", "D", "^D", "E", "F", "^F", "G", "^G", "A", "^A", "B"];
 
 /**
  * ABC記法のヘッダー部分を生成する関数
@@ -32,9 +32,22 @@ export const generateAbcHeader = (fileName, timeSig = { n: 4, d: 4 }, bpm = 120)
  * @returns {string} 音名（例: C4）
  */
 export const getNoteName = (midiNumber) => {
-  const name = NOTE_NAMES[midiNumber % 12];
-  const octave = Math.floor(midiNumber / 12) - 1;
-  return `${name}${octave}`;
+  const index = midiNumber % 12;
+  const noteName = ABC_NOTE_NAMES[index];
+  
+  // オクターブ判定 (MIDI 60 = 中央C = C)
+  // 60〜71: C, D, E...
+  // 72〜83: c, d, e... (小文字)
+  // 48〜59: C,, D,, E,, (カンマ)
+  
+  const octave = Math.floor(midiNumber / 12) - 5; // 60のとき 0 になるように
+
+  if (octave === 0) return noteName; // 中央オクターブ
+  if (octave === 1) return noteName.toLowerCase(); // 1オクターブ上
+  if (octave > 1) return noteName.toLowerCase() + "'".repeat(octave - 1); // 2オクターブ以上上 (c')
+  if (octave < 0) return noteName + ",".repeat(Math.abs(octave)); // オクターブ下 (C,)
+  
+  return noteName;
 };
 
 /**
@@ -59,6 +72,14 @@ export const extractTimeSignature = (midiData) => {
     });
   });
   return timeSig;
+};
+
+/**
+ * MIDIの解像度（1拍あたりのTick数）を抽出する
+ */
+export const extractResolution = (midiData) => {
+  // midi-parser-js の構造では通常 timeDivision に入っている
+  return midiData.timeDivision || 480; 
 };
 
 /**
@@ -120,6 +141,47 @@ export const analyzeTracks = (midiData) => {
   return musicTracks;
 };
 
+/**
+ * トラックのノート配列をABC記法の文字列に変換する
+ * @param {Array} notes - analyzeTracksで抽出したノート配列
+ * @param {number} resolution - MIDIの解像度(PPQ)
+ * @returns {string} ABC記法の音符列
+ */
+export const convertTrackToAbc = (notes, resolution) => {
+  if (!notes || notes.length === 0) return "";
+
+  let abcString = "";
+  const baseTick = resolution / 2; // L:1/8（8分音符）を基準とするための単位Tick
+
+  notes.forEach((note, i) => {
+    // 1. 音名を変換 (例: 60 -> C)
+    const name = getNoteName(note.note);
+
+    // 2. 音の長さを計算 (Note Offまでの時間を想定)
+    // ※現在は簡易的に「次の音までの間隔」を長さとして扱います
+    // 本来はNote Offイベントを見るべきですが、まずはこれで「ドレミ」が繋がります
+    let durationTicks = 0;
+    if (i < notes.length - 1) {
+      durationTicks = notes[i + 1].tick - note.tick;
+    } else {
+      durationTicks = resolution; // 最後の音はとりあえず4分音符分
+    }
+
+    // 3. ABCの長さに変換 (例: 480 / 240 = 2)
+    let length = Math.round(durationTicks / baseTick);
+    
+    // 長さが1の場合は数字を省略するのがABCのルール
+    const lengthStr = length <= 1 ? "" : length.toString();
+
+    abcString += name + lengthStr + " ";
+    
+    // 8個（2小節分程度）ごとに改行を入れると見やすい
+    if ((i + 1) % 8 === 0) abcString += "\n";
+  });
+
+  return abcString;
+};
+
 // --- UI操作部分（テスト環境では実行させない） ---
 // typeof document !== 'undefined' で囲むことで、テスト実行時のエラーを防ぎます
 if (typeof document !== 'undefined') {
@@ -152,6 +214,7 @@ if (typeof document !== 'undefined') {
         // --- 切り出したロジックを呼び出す ---
         const timeSig = extractTimeSignature(midiData);
         const bpm = extractTempo(midiData);
+        const resolution = extractResolution(midiData);
         const musicTracks = analyzeTracks(midiData);
 
         // バリデーション処理
@@ -176,7 +239,13 @@ if (typeof document !== 'undefined') {
         } else {
           output.textContent = debugLog + '\n【チェックOK！】';
           const header = generateAbcHeader(file.name, timeSig, bpm);
-          abcResult.textContent = header + "\n% ここに音符の変換結果が続きます...";
+          // メロディトラックを探して変換
+          const melodyTrack = musicTracks.find(t => !t.isChord);
+          let notesBody = "";
+          if (melodyTrack) {
+            notesBody = convertTrackToAbc(melodyTrack.notes, resolution);
+          }
+          abcResult.textContent = header + notesBody;
           abcSection.style.display = 'block';
         }
 
