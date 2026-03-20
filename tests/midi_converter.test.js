@@ -84,4 +84,59 @@ describe('ABC音符列生成のテスト', () => {
     expect(result).toContain('D '); // 半角スペースを含む
     expect(result).toContain('E2'); // E4からE2に修正
   });
+
+  it('音の前に隙間がある場合、休符 z が挿入されること', () => {
+  const mockNotes = [
+    { tick: 480, note: 60 } // 4分休符(480tick)の後に中央C
+  ];
+  const resolution = 480;
+  const result = convertTrackToAbc(mockNotes, resolution);
+  
+  // z2（8分音符2個分＝4分休符）が含まれているか
+  expect(result).toContain('z2 C2');
+  });
+
+  it('1小節分の時間が経過したときに小節線 | が挿入されること', () => {
+  const resolution = 480;
+  const mockNotes = [
+      { tick: 0, note: 60 },    // C (4分 = 480)
+      { tick: 480, note: 62 },  // D (4分 = 480)
+      { tick: 960, note: 64 },  // E (4分 = 480)
+      { tick: 1440, note: 65 }  // F (4分 = 480) -> 合計1920(1小節)
+  ];
+
+  const result = convertTrackToAbc(mockNotes, resolution);
+
+  // 最後に小節線が含まれているか
+  expect(result).toContain('|');
+  });
+
+  it('3/4拍子の場合、3拍分の経過で小節線 | が挿入されること', () => {
+  const resolution = 480;
+  const timeSig = { n: 3, d: 4 }; // 3/4拍子
+  const mockNotes = [
+    { tick: 0, note: 60 },    // 1拍目
+    { tick: 480, note: 62 },  // 2拍目
+    { tick: 960, note: 64 }   // 3拍目 -> 合計1440 (480*3)
+  ];
+  
+  const result = convertTrackToAbc(mockNotes, resolution, timeSig);
+  
+  expect(result).toContain('|');
+  });
+
+  it('和音（複数ノートが同じtick）が [CEG] 形式で出力されること', () => {
+  const mockNotes = [
+    { tick: 0, note: 60 }, // C
+    { tick: 0, note: 64 }, // E
+    { tick: 0, note: 67 }, // G  (これら3つでCメジャーコード)
+    { tick: 480, note: 60 } // 次の音（4分音符後）
+  ];
+  const resolution = 480;
+  
+  const result = convertTrackToAbc(mockNotes, resolution);
+  
+  // [CEG]2 のようになっていることを期待
+  expect(result).toContain('[CEG]2');
+});
 });

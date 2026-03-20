@@ -23,7 +23,7 @@ export const ABC_NOTE_NAMES = ["C", "^C", "D", "^D", "E", "F", "^F", "G", "^G", 
  */
 export const generateAbcHeader = (fileName, timeSig = { n: 4, d: 4 }, bpm = 120) => {
   const title = fileName.replace(/\.[^/.]+$/, "");
-  return `X:1\nT:${title}\nM:${timeSig.n}/${timeSig.d}\nL:1/8\nQ:${bpm}\nK:C\n`;
+  return `X:1\nT:${title}\nM:${timeSig.n}/${timeSig.d}\nL:1/8\nQ:${bpm}\n%%staves [1 2]\nK:C\n`;
 };
 
 /**
@@ -142,41 +142,66 @@ export const analyzeTracks = (midiData) => {
 };
 
 /**
- * トラックのノート配列をABC記法の文字列に変換する
- * @param {Array} notes - analyzeTracksで抽出したノート配列
- * @param {number} resolution - MIDIの解像度(PPQ)
- * @returns {string} ABC記法の音符列
+ * トラックのノート配列をABC記法の文字列に変換する（拍子対応版）
+ * @param {Array} notes - ノート配列
+ * @param {number} resolution - MIDI解像度
+ * @param {object} timeSig - {n: 分子, d: 分母} の拍子情報
  */
-export const convertTrackToAbc = (notes, resolution) => {
+export const convertTrackToAbc = (notes, resolution, timeSig = { n: 4, d: 4 }) => {
   if (!notes || notes.length === 0) return "";
 
   let abcString = "";
-  const baseTick = resolution / 2; // L:1/8（8分音符）を基準とするための単位Tick
+  const baseTick = resolution / 2; // L:1/8 基準
+  
+  // ★ 拍子に合わせて1小節のTick数を計算 (例: 3/4拍子なら resolution * 3)
+  const ticksPerBar = resolution * timeSig.n; 
+  
+  let currentTick = 0; 
 
-  notes.forEach((note, i) => {
-    // 1. 音名を変換 (例: 60 -> C)
-    const name = getNoteName(note.note);
-
-    // 2. 音の長さを計算 (Note Offまでの時間を想定)
-    // ※現在は簡易的に「次の音までの間隔」を長さとして扱います
-    // 本来はNote Offイベントを見るべきですが、まずはこれで「ドレミ」が繋がります
-    let durationTicks = 0;
-    if (i < notes.length - 1) {
-      durationTicks = notes[i + 1].tick - note.tick;
+  // --- (グループ化処理はそのまま) ---
+  const groups = [];
+  notes.forEach(note => {
+    const lastGroup = groups[groups.length - 1];
+    if (lastGroup && lastGroup.tick === note.tick) {
+      lastGroup.notes.push(note.note);
     } else {
-      durationTicks = resolution; // 最後の音はとりあえず4分音符分
+      groups.push({ tick: note.tick, notes: [note.note] });
+    }
+  });
+
+  // --- (変換ループ) ---
+  groups.forEach((group, i) => {
+    // 1. 休符 z の挿入 (変更なし)
+    if (group.tick > currentTick) {
+      const restTicks = group.tick - currentTick;
+      const restLength = Math.round(restTicks / baseTick);
+      if (restLength > 0) {
+        abcString += "z" + (restLength <= 1 ? "" : restLength) + " ";
+      }
+      currentTick = group.tick; 
     }
 
-    // 3. ABCの長さに変換 (例: 480 / 240 = 2)
-    let length = Math.round(durationTicks / baseTick);
-    
-    // 長さが1の場合は数字を省略するのがABCのルール
-    const lengthStr = length <= 1 ? "" : length.toString();
+    // 2. 音符生成 (変更なし)
+    let notePart = group.notes.length > 1 
+      ? `[${group.notes.map(n => getNoteName(n)).join("")}]`
+      : getNoteName(group.notes[0]);
 
-    abcString += name + lengthStr + " ";
-    
-    // 8個（2小節分程度）ごとに改行を入れると見やすい
-    if ((i + 1) % 8 === 0) abcString += "\n";
+    let durationTicks = (i < groups.length - 1) 
+      ? groups[i + 1].tick - group.tick 
+      : resolution;
+
+    const length = Math.round(durationTicks / baseTick);
+    abcString += notePart + (length <= 1 ? "" : length) + " ";
+
+    currentTick += durationTicks;
+
+    // 3. ★ 動的な ticksPerBar を使って小節線を判定
+    if (Math.round(currentTick % ticksPerBar) === 0) {
+      abcString += "| ";
+      if (Math.round(currentTick % (ticksPerBar * 2)) === 0) {
+        abcString += "\n";
+      }
+    }
   });
 
   return abcString;
@@ -238,14 +263,24 @@ if (typeof document !== 'undefined') {
           abcSection.style.display = 'none';
         } else {
           output.textContent = debugLog + '\n【チェックOK！】';
-          const header = generateAbcHeader(file.name, timeSig, bpm);
-          // メロディトラックを探して変換
-          const melodyTrack = musicTracks.find(t => !t.isChord);
-          let notesBody = "";
-          if (melodyTrack) {
-            notesBody = convertTrackToAbc(melodyTrack.notes, resolution);
-          }
-          abcResult.textContent = header + notesBody;
+  
+          // const ではなく let にして、後から文字列を追加できるようにする
+          let abcFull = generateAbcHeader(file.name, timeSig, bpm);
+          
+          // 各トラックを V: (Voice) として出力
+          musicTracks.forEach((t, idx) => {
+            const voiceId = idx + 1;
+            const voiceName = t.isChord ? 'Chord' : 'Melody';
+            
+            // トラックごとのヘッダー
+            abcFull += `V:${voiceId} name="${voiceName}"\n`;
+            
+            // 音符データを生成して結合
+            const notesString = convertTrackToAbc(t.notes, resolution, timeSig);
+            abcFull += notesString + "\n";
+          });
+
+          abcResult.textContent = abcFull;
           abcSection.style.display = 'block';
         }
 
