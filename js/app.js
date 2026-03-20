@@ -9,36 +9,32 @@ const showMidiUpload = () => {
 
 document.getElementById('startMidiConvert')?.addEventListener('click', showMidiUpload)
 
-document.getElementById('file').onchange = async (e) => {
-  const file = e.target.files[0]
-  if (!file) return
-
-  try {
-    const arrayBuffer = await file.arrayBuffer()
-    document.getElementById('output').textContent =
-      '読み込み成功: ' + file.name + '\n\n（ここにABC変換結果が表示されます）'
-  } catch (err) {
-    document.getElementById('output').textContent =
-      'エラー: ' + err.message
-  }
-}
-
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-// MIDI番号を「ドレミ」に変換する関数
+// ABCヘッダーを生成する関数
+const generateAbcHeader = (fileName) => {
+  const title = fileName.replace(/\.[^/.]+$/, ""); // 拡張子を除去
+  return `X:1\nT:${title}\nM:4/4\nL:1/8\nK:C\n`;
+};
+
 const getNoteName = (midiNumber) => {
   const name = NOTE_NAMES[midiNumber % 12];
   const octave = Math.floor(midiNumber / 12) - 1;
   return `${name}${octave}`;
 };
 
-// 和音判定とデバッグ表示を含むメイン処理
 document.getElementById('file').onchange = async (e) => {
   const file = e.target.files[0];
   if (!file) return;
 
   const output = document.getElementById('output');
+  const abcResult = document.getElementById('abc-result');
+  const abcSection = document.getElementById('abcSection');
+  
   output.textContent = '解析中...';
+  output.style.color = 'black';
+  abcResult.textContent = '';
+  abcSection.style.display = 'none';
 
   try {
     const arrayBuffer = await file.arrayBuffer();
@@ -47,13 +43,11 @@ document.getElementById('file').onchange = async (e) => {
     let musicTracks = [];
 
     midiData.track.forEach((track, idx) => {
-      let absoluteTick = 0; // 曲の開始からの累積時間
+      let absoluteTick = 0;
       let notesInTrack = [];
 
       track.event.forEach(ev => {
-        absoluteTick += ev.deltaTime; // 時間を積み上げていく
-
-        // Note On (type 9) かつ ベロシティが0より大きいものを抽出
+        absoluteTick += ev.deltaTime;
         if (ev.type === 9 && ev.data && ev.data[1] > 0) {
           notesInTrack.push({
             tick: absoluteTick,
@@ -74,23 +68,19 @@ document.getElementById('file').onchange = async (e) => {
     let melodyTrackCount = 0;
 
     musicTracks.forEach(t => {
-      // 絶対時間(tick)が重複している音があるかチェック
       const ticks = t.notes.map(n => n.tick);
       const hasChord = ticks.some((tick, i) => i > 0 && tick === ticks[i - 1]);
 
       if (hasChord) {
         chordTrackCount++;
-        debugLog += `Track ${t.index}: 和音を検出しました (Chord)\n`;
-        // 重複している箇所のサンプルを表示
-        const conflict = t.notes.find((n, i) => i > 0 && n.tick === t.notes[i-1].tick);
-        debugLog += `  -> 重複例: Tick ${conflict.tick} で複数の音が重なっています\n`;
+        debugLog += `Track ${t.index}: コードトラックとして判定\n`;
       } else {
         melodyTrackCount++;
-        debugLog += `Track ${t.index}: 単音のみです (Melody)\n`;
+        debugLog += `Track ${t.index}: メロディトラックとして判定\n`;
       }
     });
 
-    // 要件バリデーション
+    // バリデーション
     if (musicTracks.length > 2) errors.push(`トラック数が多すぎます (${musicTracks.length})`);
     if (chordTrackCount > 1) errors.push(`コードトラックが複数あります`);
     if (melodyTrackCount > 1) errors.push(`メロディトラックが複数あります`);
@@ -99,26 +89,17 @@ document.getElementById('file').onchange = async (e) => {
       output.style.color = 'red';
       output.textContent = debugLog + '\n【エラー】\n' + errors.join('\n');
     } else {
-      output.style.color = 'black';
-      output.textContent = debugLog + '\n【チェックOK！】ABC変換に進めます。';
+      output.textContent = debugLog + '\n【チェックOK！】';
+      
+      // ABCヘッダーの生成と表示
+      const header = generateAbcHeader(file.name);
+      abcResult.textContent = header + "\n% ここに音符の変換結果が続きます...";
+      abcSection.style.display = 'block';
     }
 
   } catch (err) {
+    output.style.color = 'red';
     output.textContent = '解析エラー: ' + err.message;
     console.error(err);
   }
 };
-
-// 和音が含まれているか判定する補助関数
-function checkIfHasChord(notes) {
-  // MIDIイベントのdeltaTimeが0の Note On が連続していれば和音
-  // midi-parser-js では event.deltaTime を使用
-  let chordFound = false;
-  notes.forEach((note, i) => {
-    // 2番目以降の音符で、前の音符との時間差(deltaTime)が0なら和音
-    if (i > 0 && note.deltaTime === 0) {
-      chordFound = true;
-    }
-  });
-  return chordFound;
-}
