@@ -1,20 +1,40 @@
 // ABC SCORE ASSISTANT - 共通ロジック
 
 // --- ロジック部分（テストしたい関数） ---
+/**
+ * MIDIノート番号に対応する音名リスト
+ * @type {string[]}
+ */
 export const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
+/**
+ * ABC記法のヘッダー部分を生成する関数
+ * @param {string} fileName - ファイル名（拡張子付き）
+ * @param {{n: number, d: number}} [timeSig={n:4,d:4}] - 拍子情報
+ * @param {number} [bpm=120] - テンポ（BPM）
+ * @returns {string} ABC記法のヘッダー文字列
+ */
 export const generateAbcHeader = (fileName, timeSig = { n: 4, d: 4 }, bpm = 120) => {
   const title = fileName.replace(/\.[^/.]+$/, "");
   return `X:1\nT:${title}\nM:${timeSig.n}/${timeSig.d}\nL:1/8\nQ:${bpm}\nK:C\n`;
 };
 
+/**
+ * MIDIノート番号から音名（例: C4）を取得する関数
+ * @param {number} midiNumber - MIDIノート番号
+ * @returns {string} 音名（例: C4）
+ */
 export const getNoteName = (midiNumber) => {
   const name = NOTE_NAMES[midiNumber % 12];
   const octave = Math.floor(midiNumber / 12) - 1;
   return `${name}${octave}`;
 };
 
-// 拍子を抽出するだけの関数
+/**
+ * MIDIデータから拍子情報を抽出する関数
+ * @param {object} midiData - パース済みMIDIデータ
+ * @returns {{n: number, d: number}} 拍子情報オブジェクト
+ */
 export const extractTimeSignature = (midiData) => {
   let timeSig = { n: 4, d: 4 };
   
@@ -34,6 +54,11 @@ export const extractTimeSignature = (midiData) => {
   return timeSig;
 };
 
+/**
+ * MIDIデータからテンポ（BPM）を抽出する関数
+ * @param {object} midiData - パース済みMIDIデータ
+ * @returns {number} テンポ（BPM）
+ */
 export const extractTempo = (midiData) => {
   let bpm = 120; 
   midiData.track.forEach(track => {
@@ -59,7 +84,11 @@ export const extractTempo = (midiData) => {
   return bpm;
 };
 
-// トラックを解析して「メロディかコードか」を判定するだけの関数
+/**
+ * 各トラックを解析し、メロディ/コード判定を行う関数
+ * @param {object} midiData - パース済みMIDIデータ
+ * @returns {Array<{index: number, notes: Array, isChord: boolean}>} 解析結果配列
+ */
 export const analyzeTracks = (midiData) => {
   let musicTracks = [];
   midiData.track.forEach((track, idx) => {
