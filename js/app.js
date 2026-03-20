@@ -3,9 +3,9 @@
 // --- ロジック部分（テストしたい関数） ---
 export const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-export const generateAbcHeader = (fileName, timeSig = { n: 4, d: 4 }) => {
+export const generateAbcHeader = (fileName, timeSig = { n: 4, d: 4 }, bpm = 120) => {
   const title = fileName.replace(/\.[^/.]+$/, "");
-  return `X:1\nT:${title}\nM:${timeSig.n}/${timeSig.d}\nL:1/8\nK:C\n`;
+  return `X:1\nT:${title}\nM:${timeSig.n}/${timeSig.d}\nL:1/8\nQ:${bpm}\nK:C\n`;
 };
 
 export const getNoteName = (midiNumber) => {
@@ -19,21 +19,44 @@ export const extractTimeSignature = (midiData) => {
   let timeSig = { n: 4, d: 4 };
   
   midiData.track.forEach((track, idx) => {
+    // トラックにどんなメタイベントがあるか全部出す
     track.event.forEach(ev => {
-      // 全てのメタイベントをログに出力してみる
       if (ev.type === 255) {
-        console.log(`Track ${idx}: Meta Event type=${ev.metaType}, data=`, ev.data);
+        console.log(`[Debug] Track ${idx} MetaEvent: type=${ev.metaType}`);
       }
-
-      // 拍子イベント (0x58 = 88)
+      
       if (ev.type === 255 && ev.metaType === 88) {
         timeSig.n = ev.data[0];
         timeSig.d = Math.pow(2, ev.data[1]);
-        console.log(`Found Time Signature! ${timeSig.n}/${timeSig.d}`);
       }
     });
   });
   return timeSig;
+};
+
+export const extractTempo = (midiData) => {
+  let bpm = 120; 
+  midiData.track.forEach(track => {
+    track.event.forEach(ev => {
+      if (ev.type === 255 && ev.metaType === 81) {
+        let msPerBeat;
+
+        // dataが数値として直接入っている場合
+        if (typeof ev.data === 'number') {
+          msPerBeat = ev.data;
+        } 
+        // 3バイトの配列として入っている場合
+        else if (Array.isArray(ev.data) || ev.data instanceof Uint8Array) {
+          msPerBeat = (ev.data[0] << 16) + (ev.data[1] << 8) + ev.data[2];
+        }
+
+        if (msPerBeat > 0) {
+          bpm = Math.round(60000000 / msPerBeat);
+        }
+      }
+    });
+  });
+  return bpm;
 };
 
 // トラックを解析して「メロディかコードか」を判定するだけの関数
@@ -82,6 +105,7 @@ if (typeof document !== 'undefined') {
 
       // --- 切り出したロジックを呼び出す ---
       const timeSig = extractTimeSignature(midiData);
+      const bpm = extractTempo(midiData);
       const musicTracks = analyzeTracks(midiData);
 
       // バリデーション処理
@@ -105,7 +129,7 @@ if (typeof document !== 'undefined') {
         abcSection.style.display = 'none';
       } else {
         output.textContent = debugLog + '\n【チェックOK！】';
-        const header = generateAbcHeader(file.name, timeSig);
+        const header = generateAbcHeader(file.name, timeSig, bpm);
         abcResult.textContent = header + "\n% ここに音符の変換結果が続きます...";
         abcSection.style.display = 'block';
       }

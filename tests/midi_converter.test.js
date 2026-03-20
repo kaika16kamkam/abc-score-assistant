@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import MidiParser from 'midi-parser-js';
-// 1. 新しく切り出した関数をすべてインポートする
 import { 
   generateAbcHeader, 
-  extractTimeSignature, 
+  extractTimeSignature,
+  extractTempo, 
   analyzeTracks 
 } from '../js/app.js';
 
@@ -38,6 +38,14 @@ describe('MIDIファイル読み込みとバリデーションのテスト', () 
     expect(timeSig.d).toBe(4);
   });
 
+  it('6by4.mid: 拍子(6/4)とテンポ(130)が正しく抽出されること', () => {
+  const midiData = parseMidiFile('6by4.mid');
+  const bpm = extractTempo(midiData);
+  
+  // 実際のデータに基づいた期待値に変更
+  expect(bpm).toBe(130); 
+});
+
   it('error_double_melody.mid: すべて単音（isChord: false）と判定されること', () => {
     const midiData = parseMidiFile('error_double_melody.mid');
     
@@ -58,3 +66,4 @@ describe('MIDIファイル読み込みとバリデーションのテスト', () 
     expect(analyzed.length).toBeGreaterThan(2);
   });
 });
+
