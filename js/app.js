@@ -69,7 +69,7 @@ export const generateAbcHeader = (fileName, timeSig = MIDI_CONFIG.DEFAULT_TIME_S
  * @param {object} timeSig 拍子情報 { n: 4, d: 4 } の形式で指定
  * @returns {string} ABC記法のノート部分テキスト
  */
-export const convertTrackToAbc = (notes, resolution, timeSig = { n: 4, d: 4 }) => {
+export const convertTrackToAbc = (notes, resolution, timeSig = MIDI_CONFIG.DEFAULT_TIME_SIG) => {
     if (!notes || notes.length === 0) return "";
 
     let abcString = "";
