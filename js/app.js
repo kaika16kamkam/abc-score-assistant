@@ -1,293 +1,288 @@
-// ABC SCORE ASSISTANT - 共通ロジック
+/**
+ * ABC SCORE ASSISTANT - 共通ロジック
+ */
 
 // --- 定数定義 ---
-/** MIDIイベントタイプ・メタイベントタイプ定数 */
-export const MIDI_EVENT_TYPE_META = 255;
-export const MIDI_META_TIME_SIGNATURE = 88;
-export const MIDI_META_TEMPO = 81;
-export const MIDI_EVENT_NOTE_ON = 9;
+export const MIDI_CONFIG = {
+    DEFAULT_BPM: 120,
+    DEFAULT_TIME_SIG: { n: 4, d: 4 },
+    MICROSECONDS_PER_MINUTE: 60000000,
+    CHORD_THRESHOLD_TICKS: 10
+};
 
-// --- ロジック部分（テストしたい関数） ---
-/**
- * MIDIノート番号に対応する音名リスト
- * @type {string[]}
- */
+export const MIDI_EVENT = {
+    NOTE_OFF: 0x08,
+    NOTE_ON: 0x09,
+    POLY_AFTERTOUCH: 0x0A,
+    CONTROL_CHANGE: 0x0B,
+    PROGRAM_CHANGE: 0x0C,
+    CHANNEL_AFTERTOUCH: 0x0D,
+    PITCH_BEND: 0x0E,
+    META: 0xFF,
+    SYSEX_START: 0xF0,
+    SYSEX_END: 0xF7
+};
+
+export const MIDI_META = {
+    TEMPO: 0x51,
+    TIME_SIGNATURE: 0x58
+};
+
 export const ABC_NOTE_NAMES = ["C", "^C", "D", "^D", "E", "F", "^F", "G", "^G", "A", "^A", "B"];
 
-/**
- * ABC記法のヘッダー部分を生成する関数
- * @param {string} fileName - ファイル名（拡張子付き）
- * @param {{n: number, d: number}} [timeSig={n:4,d:4}] - 拍子情報
- * @param {number} [bpm=120] - テンポ（BPM）
- * @returns {string} ABC記法のヘッダー文字列
- */
-export const generateAbcHeader = (fileName, timeSig = { n: 4, d: 4 }, bpm = 120) => {
-  const title = fileName.replace(/\.[^/.]+$/, "");
-  return `X:1\nT:${title}\nM:${timeSig.n}/${timeSig.d}\nL:1/8\nQ:${bpm}\n%%staves [1 2]\nK:C\n`;
-};
+// --- ロジック部分 ---
 
 /**
- * MIDIノート番号から音名（例: C4）を取得する関数
- * @param {number} midiNumber - MIDIノート番号
- * @returns {string} 音名（例: C4）
+ * MIDIノート番号から音名を取得
+ * @param {number} midiNumber MIDIノート番号 (例: 60 = 中央C)
+ * @returns {string} ABC記法の音名 (例: C, D, E, F, G, A, B + オクターブ表記)
  */
 export const getNoteName = (midiNumber) => {
-  const index = midiNumber % 12;
-  const noteName = ABC_NOTE_NAMES[index];
-  
-  // オクターブ判定 (MIDI 60 = 中央C = C)
-  // 60〜71: C, D, E...
-  // 72〜83: c, d, e... (小文字)
-  // 48〜59: C,, D,, E,, (カンマ)
-  
-  const octave = Math.floor(midiNumber / 12) - 5; // 60のとき 0 になるように
+    const index = midiNumber % 12;
+    const noteName = ABC_NOTE_NAMES[index];
+    const octave = Math.floor(midiNumber / 12) - 5; 
 
-  if (octave === 0) return noteName; // 中央オクターブ
-  if (octave === 1) return noteName.toLowerCase(); // 1オクターブ上
-  if (octave > 1) return noteName.toLowerCase() + "'".repeat(octave - 1); // 2オクターブ以上上 (c')
-  if (octave < 0) return noteName + ",".repeat(Math.abs(octave)); // オクターブ下 (C,)
-  
-  return noteName;
+    if (octave === 0) return noteName; 
+    if (octave === 1) return noteName.toLowerCase(); 
+    if (octave > 1) return noteName.toLowerCase() + "'".repeat(octave - 1); 
+    if (octave < 0) return noteName + ",".repeat(Math.abs(octave)); 
+    
+    return noteName;
 };
 
 /**
- * MIDIデータから拍子情報を抽出する関数
- * @param {object} midiData - パース済みMIDIデータ
- * @returns {{n: number, d: number}} 拍子情報オブジェクト
+ * ABC記法のヘッダー部分を生成する
+ * @param {string} fileName MIDIファイル名（拡張子なしでタイトルに使用）
+ * @param {object} timeSig 拍子情報 { n: 4, d: 4 } の形式で指定
+ * @param {number} bpm テンポ（BPM）
+ * @returns {string} ABC記法のヘッダーテキスト
+ */
+export const generateAbcHeader = (fileName, timeSig = MIDI_CONFIG.DEFAULT_TIME_SIG, bpm = MIDI_CONFIG.DEFAULT_BPM) => {
+    const title = fileName.replace(/\.[^/.]+$/, "");
+    return `X:1\nT:${title}\nM:${timeSig.n}/${timeSig.d}\nL:1/8\nQ:${bpm}\nK:C\n`;
+};
+
+/**
+ * トラックのノート配列をABC記法に変換
+ * @param {Array} notes MIDIノートイベントの配列 [{ tick: number, note: number }, ...]
+ * @param {number} resolution MIDIの分解能（例: 480）
+ * @param {object} timeSig 拍子情報 { n: 4, d: 4 } の形式で指定
+ * @returns {string} ABC記法のノート部分テキスト
+ */
+export const convertTrackToAbc = (notes, resolution, timeSig = MIDI_CONFIG.DEFAULT_TIME_SIG) => {
+    if (!notes || notes.length === 0) return "";
+
+    let abcString = "";
+    const baseTick = resolution / 2; // 8分音符を基準 L:1/8
+    const ticksPerBar = resolution * timeSig.n; 
+    let currentTick = 0; 
+
+    // ノートを同じタイミング（tick）でグループ化（和音対応）
+    const groups = [];
+    notes.forEach(note => {
+        const lastGroup = groups[groups.length - 1];
+        if (lastGroup && lastGroup.tick === note.tick) {
+            lastGroup.notes.push(note.note);
+        } else {
+            groups.push({ tick: note.tick, notes: [note.note] });
+        }
+    });
+
+    groups.forEach((group, i) => {
+        // 休符の挿入
+        if (group.tick > currentTick) {
+            const restLength = Math.round((group.tick - currentTick) / baseTick);
+            if (restLength > 0) abcString += "z" + (restLength <= 1 ? "" : restLength) + " ";
+            currentTick = group.tick; 
+        }
+
+        // 音符（単音 or 和音）
+        const notePart = group.notes.length > 1 
+            ? `[${group.notes.map(n => getNoteName(n)).join("")}]`
+            : getNoteName(group.notes[0]);
+
+        // 長さの計算
+        const durationTicks = (i < groups.length - 1) ? groups[i + 1].tick - group.tick : resolution;
+        const length = Math.round(durationTicks / baseTick);
+        abcString += notePart + (length <= 1 ? "" : length) + " ";
+        currentTick += durationTicks;
+
+        // 小節線
+        if (Math.round(currentTick % ticksPerBar) === 0) {
+            abcString += "| ";
+            if (Math.round(currentTick % (ticksPerBar * 2)) === 0) abcString += "\n";
+        }
+    });
+    return abcString;
+};
+
+/**
+ * 拍子情報の抽出
+ * @param {object} midiData MIDIデータ全体（parseMidiBinaryの結果を想定）
+ * @returns {object} 拍子情報 { n: 4, d: 4 } の形式で返す
  */
 export const extractTimeSignature = (midiData) => {
-  let timeSig = { n: 4, d: 4 };
-  
-  midiData.track.forEach((track, idx) => {
-    // トラックにどんなメタイベントがあるか全部出す
-    track.event.forEach(ev => {
-      if (ev.type === MIDI_EVENT_TYPE_META) {
-        console.log(`[Debug] Track ${idx} MetaEvent: type=${ev.metaType}`);
-      }
-      
-      if (ev.type === MIDI_EVENT_TYPE_META && ev.metaType === MIDI_META_TIME_SIGNATURE) {
-        timeSig.n = ev.data[0];
-        timeSig.d = Math.pow(2, ev.data[1]);
-      }
-    });
-  });
-  return timeSig;
+    const source = Array.isArray(midiData) ? midiData.find(t => t.timeSignature) : midiData;
+    return source?.timeSignature || MIDI_CONFIG.DEFAULT_TIME_SIG;
 };
 
 /**
- * MIDIの解像度（1拍あたりのTick数）を抽出する
- */
-export const extractResolution = (midiData) => {
-  // midi-parser-js の構造では通常 timeDivision に入っている
-  return midiData.timeDivision || 480; 
-};
-
-/**
- * MIDIデータからテンポ（BPM）を抽出する関数
- * @param {object} midiData - パース済みMIDIデータ
+ * テンポの抽出
+ * @param {object} midiData MIDIデータ全体（parseMidiBinaryの結果を想定）
  * @returns {number} テンポ（BPM）
  */
 export const extractTempo = (midiData) => {
-  let bpm = 120; 
-  midiData.track.forEach(track => {
-    track.event.forEach(ev => {
-      if (ev.type === MIDI_EVENT_TYPE_META && ev.metaType === MIDI_META_TEMPO) {
-        let msPerBeat;
-
-        // dataが数値として直接入っている場合
-        if (typeof ev.data === 'number') {
-          msPerBeat = ev.data;
-        } 
-        // 3バイトの配列として入っている場合
-        else if (Array.isArray(ev.data) || ev.data instanceof Uint8Array) {
-          msPerBeat = (ev.data[0] << 16) + (ev.data[1] << 8) + ev.data[2];
-        }
-
-        if (msPerBeat > 0) {
-          bpm = Math.round(60000000 / msPerBeat);
-        }
-      }
-    });
-  });
-  return bpm;
+    const source = Array.isArray(midiData) ? midiData.find(t => t.bpm) : midiData;
+    return source?.bpm || MIDI_CONFIG.DEFAULT_BPM;
 };
 
 /**
- * 各トラックを解析し、メロディ/コード判定を行う関数
- * @param {object} midiData - パース済みMIDIデータ
- * @returns {Array<{index: number, notes: Array, isChord: boolean}>} 解析結果配列
+ * トラック解析
  */
 export const analyzeTracks = (midiData) => {
-  const musicTracks = [];
-  midiData.track.forEach((track, idx) => {
-    let absoluteTick = 0;
-    const notes = [];
-    track.event.forEach(ev => {
-      absoluteTick += ev.deltaTime;
-      if (ev.type === MIDI_EVENT_NOTE_ON && ev.data && ev.data[1] > 0) {
-        notes.push({ tick: absoluteTick, note: ev.data[0], velocity: ev.data[1] });
-      }
-    });
-
-    if (notes.length > 0) {
-      const hasChord = notes.some((n, i) => i > 0 && n.tick === notes[i - 1].tick);
-      musicTracks.push({
+    return midiData.map((track, idx) => ({
         index: idx,
-        notes: notes,
-        isChord: hasChord
-      });
-    }
-  });
-  return musicTracks;
+        notes: track.notes,
+        isChord: track.notes.some((n, i) => 
+            i > 0 && Math.abs(n.tick - track.notes[i-1].tick) <= MIDI_CONFIG.CHORD_THRESHOLD_TICKS
+        )
+    }));
 };
 
 /**
- * トラックのノート配列をABC記法の文字列に変換する（拍子対応版）
- * @param {Array} notes - ノート配列
- * @param {number} resolution - MIDI解像度
- * @param {object} timeSig - {n: 分子, d: 分母} の拍子情報
+ * MIDIバイナリ解析（Logic Pro / Running Status対応版）
+ * @param {Uint8Array} data MIDIファイルのバイナリデータ
+ * @returns {Array} トラックごとのノート情報 [{ notes: Array, resolution: number }, ...]
  */
-export const convertTrackToAbc = (notes, resolution, timeSig = { n: 4, d: 4 }) => {
-  if (!notes || notes.length === 0) return "";
+export const parseMidiBinary = (data) => {
+    const reader = {
+        pos: 0,
+        readByte() { return data[this.pos++]; },
+        readUint16() { return (this.readByte() << 8) | this.readByte(); },
+        readVarInt() {
+            let res = 0;
+            while (true) {
+                let b = this.readByte();
+                if (b & 0x80) { res = (res << 7) | (b & 0x7f); }
+                else { return (res << 7) | b; }
+            }
+        }
+    };
 
-  let abcString = "";
-  const baseTick = resolution / 2; // L:1/8 基準
-  
-  // ★ 拍子に合わせて1小節のTick数を計算 (例: 3/4拍子なら resolution * 3)
-  const ticksPerBar = resolution * timeSig.n; 
-  
-  let currentTick = 0; 
+    reader.pos = 8; // MThdヘッダーをスキップ
+    const format = reader.readUint16();
+    const trackCount = reader.readUint16();
+    const resolution = reader.readUint16();
 
-  // --- (グループ化処理はそのまま) ---
-  const groups = [];
-  notes.forEach(note => {
-    const lastGroup = groups[groups.length - 1];
-    if (lastGroup && lastGroup.tick === note.tick) {
-      lastGroup.notes.push(note.note);
-    } else {
-      groups.push({ tick: note.tick, notes: [note.note] });
+    const tracks = [];
+    // ファイル全体で共有するメタデータの初期値
+    let globalTimeSig = MIDI_CONFIG.DEFAULT_TIME_SIG;
+    let globalBpm = MIDI_CONFIG.DEFAULT_BPM;
+
+    for (let i = 0; i < trackCount; i++) {
+        reader.pos += 4; // "MTrk"
+        const len = (reader.readByte() << 24) | (reader.readByte() << 16) | (reader.readByte() << 8) | reader.readByte();
+        const endPos = reader.pos + len;
+        
+        let absoluteTick = 0;
+        let lastStatus = 0;
+        const notes = [];
+
+        while (reader.pos < endPos) {
+            absoluteTick += reader.readVarInt();
+            let status = reader.readByte();
+
+            if (status < 0x80) {
+                status = lastStatus;
+                reader.pos--;
+            } else {
+                lastStatus = status;
+            }
+
+            const type = status >> 4;
+            
+            if (type === MIDI_EVENT.NOTE_ON) {
+                const note = reader.readByte();
+                const vel = reader.readByte();
+                if (vel > 0) notes.push({ tick: absoluteTick, note, velocity: vel });
+            } else if (type === MIDI_EVENT.NOTE_OFF) {
+                reader.pos += 2;
+            } else if (status === MIDI_EVENT.META) {
+                const metaType = reader.readByte();
+                const mlen = reader.readVarInt();
+                
+                if (metaType === MIDI_META.TIME_SIGNATURE) {
+                    globalTimeSig = {
+                        n: reader.readByte(),
+                        d: Math.pow(2, reader.readByte())
+                    };
+                    reader.pos += (mlen - 2); // 残りのバイト（クロック数など）を飛ばす
+                } else if (metaType === MIDI_META.TEMPO) {
+                    const mspb = (reader.readByte() << 16) | (reader.readByte() << 8) | reader.readByte();
+                    globalBpm = Math.round(MIDI_CONFIG.MICROSECONDS_PER_MINUTE / mspb);
+                } else {
+                    reader.pos += mlen;
+                }
+            } else if (type === MIDI_EVENT.POLY_AFTERTOUCH || type === MIDI_EVENT.CONTROL_CHANGE || type === MIDI_EVENT.PITCH_BEND) {
+                reader.pos += 2;
+            } else if (type === MIDI_EVENT.PROGRAM_CHANGE || type === MIDI_EVENT.CHANNEL_AFTERTOUCH) {
+                reader.pos += 1;
+            } else if (status === MIDI_EVENT.SYSEX_START || status === MIDI_EVENT.SYSEX_END) {
+                reader.pos += reader.readVarInt();
+            }
+        }
+        // 音符があるトラック、または最初のトラックにメタデータを付与して保存
+        if (notes.length > 0 || i === 0) {
+            tracks.push({ notes, resolution, timeSignature: globalTimeSig, bpm: globalBpm });
+        }
     }
-  });
-
-  // --- (変換ループ) ---
-  groups.forEach((group, i) => {
-    // 1. 休符 z の挿入 (変更なし)
-    if (group.tick > currentTick) {
-      const restTicks = group.tick - currentTick;
-      const restLength = Math.round(restTicks / baseTick);
-      if (restLength > 0) {
-        abcString += "z" + (restLength <= 1 ? "" : restLength) + " ";
-      }
-      currentTick = group.tick; 
-    }
-
-    // 2. 音符生成 (変更なし)
-    let notePart = group.notes.length > 1 
-      ? `[${group.notes.map(n => getNoteName(n)).join("")}]`
-      : getNoteName(group.notes[0]);
-
-    let durationTicks = (i < groups.length - 1) 
-      ? groups[i + 1].tick - group.tick 
-      : resolution;
-
-    const length = Math.round(durationTicks / baseTick);
-    abcString += notePart + (length <= 1 ? "" : length) + " ";
-
-    currentTick += durationTicks;
-
-    // 3. ★ 動的な ticksPerBar を使って小節線を判定
-    if (Math.round(currentTick % ticksPerBar) === 0) {
-      abcString += "| ";
-      if (Math.round(currentTick % (ticksPerBar * 2)) === 0) {
-        abcString += "\n";
-      }
-    }
-  });
-
-  return abcString;
+    return tracks;
 };
 
-// --- UI操作部分（テスト環境では実行させない） ---
-// typeof document !== 'undefined' で囲むことで、テスト実行時のエラーを防ぎます
+// --- UI操作部分 ---
 if (typeof document !== 'undefined') {
-  const fileInput = document.getElementById('file');
-  const output = document.getElementById('output');
-  const abcResult = document.getElementById('abc-result');
-  const abcSection = document.getElementById('abcSection');
+    const fileInput = document.getElementById('file');
+    const output = document.getElementById('output');
+    const abcResult = document.getElementById('abc-result');
+    const abcSection = document.getElementById('abcSection');
 
-  if (!fileInput || !output || !abcResult || !abcSection) {
-    // UI要素が取得できなかった場合のエラー表示
-    if (output) {
-      output.style.color = 'red';
-      output.textContent = 'UI要素の取得に失敗しました。HTML構造を確認してください。';
-    } else {
-      // output自体がnullの場合はalertで通知
-      alert('UI要素の取得に失敗しました。HTML構造を確認してください。');
-    }
-  } else {
     fileInput.onchange = async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+        const file = e.target.files[0];
+        if (!file) return;
 
-      output.textContent = '解析中...';
-      output.style.color = 'black';
+        try {
+            const buffer = new Uint8Array(await file.arrayBuffer());
+            const parsedTracks = parseMidiBinary(buffer);
 
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const midiData = MidiParser.parse(new Uint8Array(arrayBuffer));
+            if (parsedTracks.length === 0) throw new Error("音符が見つかりませんでした。");
 
-        // --- 切り出したロジックを呼び出す ---
-        const timeSig = extractTimeSignature(midiData);
-        const bpm = extractTempo(midiData);
-        const resolution = extractResolution(midiData);
-        const musicTracks = analyzeTracks(midiData);
-
-        // バリデーション処理
-        let debugLog = `【デバッグ情報: ${file.name}】\n`;
-        let errors = [];
-        const chordTracks = musicTracks.filter(t => t.isChord);
-        const melodyTracks = musicTracks.filter(t => !t.isChord);
-
-        musicTracks.forEach(t => {
-          debugLog += `Track ${t.index}: ${t.isChord ? 'コード' : 'メロディ'}トラックとして判定\n`;
-        });
-
-        if (musicTracks.length > 2) errors.push(`トラック数が多すぎます (${musicTracks.length})`);
-        if (chordTracks.length > 1) errors.push(`コードトラックが複数あります`);
-        if (melodyTracks.length > 1) errors.push(`メロディトラックが複数あります`);
-
-        // 画面への反映
-        if (errors.length > 0) {
-          output.style.color = 'red';
-          output.textContent = debugLog + '\n【エラー】\n' + errors.join('\n');
-          abcSection.style.display = 'none';
-        } else {
-          output.textContent = debugLog + '\n【チェックOK！】';
-  
-          // const ではなく let にして、後から文字列を追加できるようにする
-          let abcFull = generateAbcHeader(file.name, timeSig, bpm);
-          
-          // 各トラックを V: (Voice) として出力
-          musicTracks.forEach((t, idx) => {
-            const voiceId = idx + 1;
-            const voiceName = t.isChord ? 'Chord' : 'Melody';
+            const resolution = parsedTracks[0].resolution;
+            let debugLog = `【解析成功: ${file.name}】\n`;
             
-            // トラックごとのヘッダー
-            abcFull += `V:${voiceId} name="${voiceName}"\n`;
-            
-            // 音符データを生成して結合
-            const notesString = convertTrackToAbc(t.notes, resolution, timeSig);
-            abcFull += notesString + "\n";
-          });
+            const analyzed = analyzeTracks(parsedTracks).filter(t => t.notes.length > 0);
+            const timeSig = extractTimeSignature(parsedTracks);
+            const bpm = extractTempo(parsedTracks);
 
-          abcResult.textContent = abcFull;
-          abcSection.style.display = 'block';
+            let abcFull = generateAbcHeader(file.name, timeSig, bpm);
+
+            // 有効なトラック（音符あり）だけを回す
+            analyzed.forEach((track, i) => {
+                // 表示上のインデックスを見やすく（Track 1, 2...）
+                const displayIdx = i + 1; 
+                debugLog += `Track ${displayIdx}: ${track.isChord ? 'コード' : 'メロディ'} (${track.notes.length}音)\n`;
+                
+                // ABC記法のボイス番号も連番にする
+                abcFull += `V:${displayIdx} name="${track.isChord ? 'Chord' : 'Melody'}"\n`;
+                abcFull += convertTrackToAbc(track.notes, resolution, timeSig) + "\n";
+            });
+
+            output.textContent = debugLog + "\n【チェックOK！】";
+            abcResult.textContent = abcFull;
+            abcSection.style.display = 'block';
+
+        } catch (err) {
+            output.style.color = 'red';
+            output.textContent = '解析エラー: ' + err.message;
         }
-
-      } catch (err) {
-        output.style.color = 'red';
-        output.textContent = '解析エラー: ' + err.message;
-      }
     };
-  }
 }
