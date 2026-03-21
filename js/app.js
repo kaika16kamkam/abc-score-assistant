@@ -1,7 +1,33 @@
-// ABC SCORE ASSISTANT
+/**
+ * ABC SCORE ASSISTANT - 共通ロジック
+ */
 
 // --- 定数定義 ---
-/** MIDIノート番号に対応する音名リスト */
+export const MIDI_CONFIG = {
+    DEFAULT_BPM: 120,
+    DEFAULT_TIME_SIG: { n: 4, d: 4 },
+    MICROSECONDS_PER_MINUTE: 60000000,
+    CHORD_THRESHOLD_TICKS: 10
+};
+
+export const MIDI_EVENT = {
+    NOTE_OFF: 0x08,
+    NOTE_ON: 0x09,
+    POLY_AFTERTOUCH: 0x0A,
+    CONTROL_CHANGE: 0x0B,
+    PROGRAM_CHANGE: 0x0C,
+    CHANNEL_AFTERTOUCH: 0x0D,
+    PITCH_BEND: 0x0E,
+    META: 0xFF,
+    SYSEX_START: 0xF0,
+    SYSEX_END: 0xF7
+};
+
+export const MIDI_META = {
+    TEMPO: 0x51,
+    TIME_SIGNATURE: 0x58
+};
+
 export const ABC_NOTE_NAMES = ["C", "^C", "D", "^D", "E", "F", "^F", "G", "^G", "A", "^A", "B"];
 
 // --- ロジック部分 ---
@@ -31,7 +57,7 @@ export const getNoteName = (midiNumber) => {
  * @param {number} bpm テンポ（BPM）
  * @returns {string} ABC記法のヘッダーテキスト
  */
-export const generateAbcHeader = (fileName, timeSig = { n: 4, d: 4 }, bpm = 120) => {
+export const generateAbcHeader = (fileName, timeSig = MIDI_CONFIG.DEFAULT_TIME_SIG, bpm = MIDI_CONFIG.DEFAULT_BPM) => {
     const title = fileName.replace(/\.[^/.]+$/, "");
     return `X:1\nT:${title}\nM:${timeSig.n}/${timeSig.d}\nL:1/8\nQ:${bpm}\nK:C\n`;
 };
@@ -43,14 +69,15 @@ export const generateAbcHeader = (fileName, timeSig = { n: 4, d: 4 }, bpm = 120)
  * @param {object} timeSig 拍子情報 { n: 4, d: 4 } の形式で指定
  * @returns {string} ABC記法のノート部分テキスト
  */
-export const convertTrackToAbc = (notes, resolution, timeSig = { n: 4, d: 4 }) => {
+export const convertTrackToAbc = (notes, resolution, timeSig = MIDI_CONFIG.DEFAULT_TIME_SIG) => {
     if (!notes || notes.length === 0) return "";
 
     let abcString = "";
-    const baseTick = resolution / 2; 
+    const baseTick = resolution / 2; // 8分音符を基準 L:1/8
     const ticksPerBar = resolution * timeSig.n; 
     let currentTick = 0; 
 
+    // ノートを同じタイミング（tick）でグループ化（和音対応）
     const groups = [];
     notes.forEach(note => {
         const lastGroup = groups[groups.length - 1];
@@ -62,21 +89,25 @@ export const convertTrackToAbc = (notes, resolution, timeSig = { n: 4, d: 4 }) =
     });
 
     groups.forEach((group, i) => {
+        // 休符の挿入
         if (group.tick > currentTick) {
             const restLength = Math.round((group.tick - currentTick) / baseTick);
             if (restLength > 0) abcString += "z" + (restLength <= 1 ? "" : restLength) + " ";
             currentTick = group.tick; 
         }
 
-        let notePart = group.notes.length > 1 
+        // 音符（単音 or 和音）
+        const notePart = group.notes.length > 1 
             ? `[${group.notes.map(n => getNoteName(n)).join("")}]`
             : getNoteName(group.notes[0]);
 
-        let durationTicks = (i < groups.length - 1) ? groups[i + 1].tick - group.tick : resolution;
+        // 長さの計算
+        const durationTicks = (i < groups.length - 1) ? groups[i + 1].tick - group.tick : resolution;
         const length = Math.round(durationTicks / baseTick);
         abcString += notePart + (length <= 1 ? "" : length) + " ";
         currentTick += durationTicks;
 
+        // 小節線
         if (Math.round(currentTick % ticksPerBar) === 0) {
             abcString += "| ";
             if (Math.round(currentTick % (ticksPerBar * 2)) === 0) abcString += "\n";
@@ -91,14 +122,8 @@ export const convertTrackToAbc = (notes, resolution, timeSig = { n: 4, d: 4 }) =
  * @returns {object} 拍子情報 { n: 4, d: 4 } の形式で返す
  */
 export const extractTimeSignature = (midiData) => {
-    // parseMidiBinaryの結果が配列なら、そこに保存されたメタデータを探す
-    if (Array.isArray(midiData)) {
-        const meta = midiData.find(t => t.timeSignature);
-        return meta ? meta.timeSignature : { n: 4, d: 4 };
-    }
-    // 旧parser/テスト環境用
-    if (midiData?.timeSignature) return midiData.timeSignature;
-    return { n: 4, d: 4 };
+    const source = Array.isArray(midiData) ? midiData.find(t => t.timeSignature) : midiData;
+    return source?.timeSignature || MIDI_CONFIG.DEFAULT_TIME_SIG;
 };
 
 /**
@@ -107,25 +132,20 @@ export const extractTimeSignature = (midiData) => {
  * @returns {number} テンポ（BPM）
  */
 export const extractTempo = (midiData) => {
-    if (Array.isArray(midiData)) {
-        const meta = midiData.find(t => t.bpm);
-        return meta ? meta.bpm : 120;
-    }
-    if (midiData?.bpm) return midiData.bpm;
-    return 120;
+    const source = Array.isArray(midiData) ? midiData.find(t => t.bpm) : midiData;
+    return source?.bpm || MIDI_CONFIG.DEFAULT_BPM;
 };
 
 /**
- * トラック解析 (isChord判定などを含む)
- * @param {object} midiData MIDIデータ全体（parseMidiBinaryの結果を想定）
- * @returns {Array} トラックごとの解析結果 [{ index: number, notes: Array, isChord: boolean }, ...]
+ * トラック解析
  */
 export const analyzeTracks = (midiData) => {
-    // midiDataがすでに入れ子（parseMidiBinaryの結果）であることを想定
     return midiData.map((track, idx) => ({
         index: idx,
         notes: track.notes,
-        isChord: track.notes.some((n, i) => i > 0 && Math.abs(n.tick - track.notes[i-1].tick) <= 10)
+        isChord: track.notes.some((n, i) => 
+            i > 0 && Math.abs(n.tick - track.notes[i-1].tick) <= MIDI_CONFIG.CHORD_THRESHOLD_TICKS
+        )
     }));
 };
 
@@ -139,8 +159,6 @@ export const parseMidiBinary = (data) => {
         pos: 0,
         readByte() { return data[this.pos++]; },
         readUint16() { return (this.readByte() << 8) | this.readByte(); },
-        readUint32() { return (this.readUint32_16() << 16) | this.readUint32_16(); },
-        readUint32_16() { return (this.readByte() << 8) | this.readByte(); },
         readVarInt() {
             let res = 0;
             while (true) {
@@ -151,18 +169,18 @@ export const parseMidiBinary = (data) => {
         }
     };
 
-    reader.pos = 8; 
+    reader.pos = 8; // MThdヘッダーをスキップ
     const format = reader.readUint16();
     const trackCount = reader.readUint16();
     const resolution = reader.readUint16();
 
     const tracks = [];
     // ファイル全体で共有するメタデータの初期値
-    let globalTimeSig = { n: 4, d: 4 };
-    let globalBpm = 120;
+    let globalTimeSig = MIDI_CONFIG.DEFAULT_TIME_SIG;
+    let globalBpm = MIDI_CONFIG.DEFAULT_BPM;
 
     for (let i = 0; i < trackCount; i++) {
-        reader.pos += 4; 
+        reader.pos += 4; // "MTrk"
         const len = (reader.readByte() << 24) | (reader.readByte() << 16) | (reader.readByte() << 8) | reader.readByte();
         const endPos = reader.pos + len;
         
@@ -182,45 +200,40 @@ export const parseMidiBinary = (data) => {
             }
 
             const type = status >> 4;
-            if (type === 0x9) { // Note On
+            
+            if (type === MIDI_EVENT.NOTE_ON) {
                 const note = reader.readByte();
                 const vel = reader.readByte();
                 if (vel > 0) notes.push({ tick: absoluteTick, note, velocity: vel });
-            } else if (type === 0x8) { 
+            } else if (type === MIDI_EVENT.NOTE_OFF) {
                 reader.pos += 2;
-            } else if (status === 0xFF) { // Meta Event
+            } else if (status === MIDI_EVENT.META) {
                 const metaType = reader.readByte();
                 const mlen = reader.readVarInt();
                 
-                if (metaType === 0x58) { // Time Signature (拍子)
+                if (metaType === MIDI_META.TIME_SIGNATURE) {
                     globalTimeSig = {
                         n: reader.readByte(),
                         d: Math.pow(2, reader.readByte())
                     };
                     reader.pos += (mlen - 2); // 残りのバイト（クロック数など）を飛ばす
-                } else if (metaType === 0x51) { // Tempo (テンポ)
+                } else if (metaType === MIDI_META.TEMPO) {
                     const mspb = (reader.readByte() << 16) | (reader.readByte() << 8) | reader.readByte();
-                    globalBpm = Math.round(60000000 / mspb);
+                    globalBpm = Math.round(MIDI_CONFIG.MICROSECONDS_PER_MINUTE / mspb);
                 } else {
                     reader.pos += mlen;
                 }
-            } else if (type === 0xA || type === 0xB || type === 0xE) {
+            } else if (type === MIDI_EVENT.POLY_AFTERTOUCH || type === MIDI_EVENT.CONTROL_CHANGE || type === MIDI_EVENT.PITCH_BEND) {
                 reader.pos += 2;
-            } else if (type === 0xC || type === 0xD) {
+            } else if (type === MIDI_EVENT.PROGRAM_CHANGE || type === MIDI_EVENT.CHANNEL_AFTERTOUCH) {
                 reader.pos += 1;
-            } else if (status === 0xF0 || status === 0xF7) {
-                const slen = reader.readVarInt();
-                reader.pos += slen;
+            } else if (status === MIDI_EVENT.SYSEX_START || status === MIDI_EVENT.SYSEX_END) {
+                reader.pos += reader.readVarInt();
             }
         }
         // 音符があるトラック、または最初のトラックにメタデータを付与して保存
         if (notes.length > 0 || i === 0) {
-            tracks.push({ 
-                notes, 
-                resolution, 
-                timeSignature: globalTimeSig, 
-                bpm: globalBpm 
-            });
+            tracks.push({ notes, resolution, timeSignature: globalTimeSig, bpm: globalBpm });
         }
     }
     return tracks;
