@@ -1,4 +1,4 @@
-// ABC SCORE ASSISTANT - 安定版（Logic Pro 救済ロジック優先）
+// ABC SCORE ASSISTANT
 
 // --- 定数定義 ---
 /** MIDIノート番号に対応する音名リスト */
@@ -7,9 +7,9 @@ export const ABC_NOTE_NAMES = ["C", "^C", "D", "^D", "E", "F", "^F", "G", "^G", 
 // --- ロジック部分 ---
 
 /**
+ * MIDIノート番号から音名を取得
  * @param {number} midiNumber MIDIノート番号 (例: 60 = 中央C)
  * @returns {string} ABC記法の音名 (例: C, D, E, F, G, A, B + オクターブ表記)
- * MIDIノート番号から音名を取得
  */
 export const getNoteName = (midiNumber) => {
     const index = midiNumber % 12;
@@ -86,14 +86,59 @@ export const convertTrackToAbc = (notes, resolution, timeSig = { n: 4, d: 4 }) =
 };
 
 /**
- * MIDI解析ロジック（Running Status対応：以前動いたものを復元）
+ * 拍子情報の抽出
+ * @param {object} midiData MIDIデータ全体（parseMidiBinaryの結果を想定）
+ * @returns {object} 拍子情報 { n: 4, d: 4 } の形式で返す
  */
-const parseMidiBinary = (data) => {
+export const extractTimeSignature = (midiData) => {
+    // parseMidiBinaryの結果が配列なら、そこに保存されたメタデータを探す
+    if (Array.isArray(midiData)) {
+        const meta = midiData.find(t => t.timeSignature);
+        return meta ? meta.timeSignature : { n: 4, d: 4 };
+    }
+    // 旧parser/テスト環境用
+    if (midiData?.timeSignature) return midiData.timeSignature;
+    return { n: 4, d: 4 };
+};
+
+/**
+ * テンポの抽出
+ * @param {object} midiData MIDIデータ全体（parseMidiBinaryの結果を想定）
+ * @returns {number} テンポ（BPM）
+ */
+export const extractTempo = (midiData) => {
+    if (Array.isArray(midiData)) {
+        const meta = midiData.find(t => t.bpm);
+        return meta ? meta.bpm : 120;
+    }
+    if (midiData?.bpm) return midiData.bpm;
+    return 120;
+};
+
+/**
+ * トラック解析 (isChord判定などを含む)
+ * @param {object} midiData MIDIデータ全体（parseMidiBinaryの結果を想定）
+ * @returns {Array} トラックごとの解析結果 [{ index: number, notes: Array, isChord: boolean }, ...]
+ */
+export const analyzeTracks = (midiData) => {
+    // midiDataがすでに入れ子（parseMidiBinaryの結果）であることを想定
+    return midiData.map((track, idx) => ({
+        index: idx,
+        notes: track.notes,
+        isChord: track.notes.some((n, i) => i > 0 && Math.abs(n.tick - track.notes[i-1].tick) <= 10)
+    }));
+};
+
+/**
+ * MIDIバイナリ解析（Logic Pro / Running Status対応版）
+ * @param {Uint8Array} data MIDIファイルのバイナリデータ
+ * @returns {Array} トラックごとのノート情報 [{ notes: Array, resolution: number }, ...]
+ */
+export const parseMidiBinary = (data) => {
     const reader = {
         pos: 0,
         readByte() { return data[this.pos++]; },
         readUint16() { return (this.readByte() << 8) | this.readByte(); },
-        // 以前のバージョンで動作していた readUint32 ロジック
         readUint32() { return (this.readUint32_16() << 16) | this.readUint32_16(); },
         readUint32_16() { return (this.readByte() << 8) | this.readByte(); },
         readVarInt() {
@@ -112,6 +157,10 @@ const parseMidiBinary = (data) => {
     const resolution = reader.readUint16();
 
     const tracks = [];
+    // ファイル全体で共有するメタデータの初期値
+    let globalTimeSig = { n: 4, d: 4 };
+    let globalBpm = 120;
+
     for (let i = 0; i < trackCount; i++) {
         reader.pos += 4; 
         const len = (reader.readByte() << 24) | (reader.readByte() << 16) | (reader.readByte() << 8) | reader.readByte();
@@ -139,10 +188,22 @@ const parseMidiBinary = (data) => {
                 if (vel > 0) notes.push({ tick: absoluteTick, note, velocity: vel });
             } else if (type === 0x8) { 
                 reader.pos += 2;
-            } else if (status === 0xFF) { 
-                reader.pos++; 
+            } else if (status === 0xFF) { // Meta Event
+                const metaType = reader.readByte();
                 const mlen = reader.readVarInt();
-                reader.pos += mlen;
+                
+                if (metaType === 0x58) { // Time Signature (拍子)
+                    globalTimeSig = {
+                        n: reader.readByte(),
+                        d: Math.pow(2, reader.readByte())
+                    };
+                    reader.pos += (mlen - 2); // 残りのバイト（クロック数など）を飛ばす
+                } else if (metaType === 0x51) { // Tempo (テンポ)
+                    const mspb = (reader.readByte() << 16) | (reader.readByte() << 8) | reader.readByte();
+                    globalBpm = Math.round(60000000 / mspb);
+                } else {
+                    reader.pos += mlen;
+                }
             } else if (type === 0xA || type === 0xB || type === 0xE) {
                 reader.pos += 2;
             } else if (type === 0xC || type === 0xD) {
@@ -152,7 +213,15 @@ const parseMidiBinary = (data) => {
                 reader.pos += slen;
             }
         }
-        if (notes.length > 0) tracks.push({ notes, resolution });
+        // 音符があるトラック、または最初のトラックにメタデータを付与して保存
+        if (notes.length > 0 || i === 0) {
+            tracks.push({ 
+                notes, 
+                resolution, 
+                timeSignature: globalTimeSig, 
+                bpm: globalBpm 
+            });
+        }
     }
     return tracks;
 };
@@ -176,14 +245,17 @@ if (typeof document !== 'undefined') {
 
             const resolution = parsedTracks[0].resolution;
             let debugLog = `【解析成功: ${file.name}】\n`;
-            let abcFull = `X:1\nT:${file.name}\nM:4/4\nL:1/8\nQ:120\nK:C\n`;
+            
+            const analyzed = analyzeTracks(parsedTracks);
+            const timeSig = extractTimeSignature(parsedTracks);
+            const bpm = extractTempo(parsedTracks);
 
-            parsedTracks.forEach((track, idx) => {
-                const isChord = track.notes.some((n, i) => i > 0 && Math.abs(n.tick - track.notes[i-1].tick) <= 10);
-                debugLog += `Track ${idx}: ${isChord ? 'コード' : 'メロディ'} (${track.notes.length}音)\n`;
-                
-                abcFull += `V:${idx + 1} name="${isChord ? 'Chord' : 'Melody'}"\n`;
-                abcFull += convertTrackToAbc(track.notes, resolution, {n:4, d:4}) + "\n";
+            let abcFull = generateAbcHeader(file.name, timeSig, bpm);
+
+            analyzed.forEach((track) => {
+                debugLog += `Track ${track.index}: ${track.isChord ? 'コード' : 'メロディ'} (${track.notes.length}音)\n`;
+                abcFull += `V:${track.index + 1} name="${track.isChord ? 'Chord' : 'Melody'}"\n`;
+                abcFull += convertTrackToAbc(track.notes, resolution, timeSig) + "\n";
             });
 
             output.textContent = debugLog + "\n【チェックOK！】";
