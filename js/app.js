@@ -1,11 +1,14 @@
 // ABC SCORE ASSISTANT - 安定版（Logic Pro 救済ロジック優先）
 
 // --- 定数定義 ---
+/** MIDIノート番号に対応する音名リスト */
 export const ABC_NOTE_NAMES = ["C", "^C", "D", "^D", "E", "F", "^F", "G", "^G", "A", "^A", "B"];
 
 // --- ロジック部分 ---
 
 /**
+ * @param {number} midiNumber MIDIノート番号 (例: 60 = 中央C)
+ * @returns {string} ABC記法の音名 (例: C, D, E, F, G, A, B + オクターブ表記)
  * MIDIノート番号から音名を取得
  */
 export const getNoteName = (midiNumber) => {
@@ -22,7 +25,23 @@ export const getNoteName = (midiNumber) => {
 };
 
 /**
+ * ABC記法のヘッダー部分を生成する
+ * @param {string} fileName MIDIファイル名（拡張子なしでタイトルに使用）
+ * @param {object} timeSig 拍子情報 { n: 4, d: 4 } の形式で指定
+ * @param {number} bpm テンポ（BPM）
+ * @returns {string} ABC記法のヘッダーテキスト
+ */
+export const generateAbcHeader = (fileName, timeSig = { n: 4, d: 4 }, bpm = 120) => {
+    const title = fileName.replace(/\.[^/.]+$/, "");
+    return `X:1\nT:${title}\nM:${timeSig.n}/${timeSig.d}\nL:1/8\nQ:${bpm}\nK:C\n`;
+};
+
+/**
  * トラックのノート配列をABC記法に変換
+ * @param {Array} notes MIDIノートイベントの配列 [{ tick: number, note: number }, ...]
+ * @param {number} resolution MIDIの分解能（例: 480）
+ * @param {object} timeSig 拍子情報 { n: 4, d: 4 } の形式で指定
+ * @returns {string} ABC記法のノート部分テキスト
  */
 export const convertTrackToAbc = (notes, resolution, timeSig = { n: 4, d: 4 }) => {
     if (!notes || notes.length === 0) return "";
