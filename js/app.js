@@ -259,15 +259,20 @@ if (typeof document !== 'undefined') {
             const resolution = parsedTracks[0].resolution;
             let debugLog = `【解析成功: ${file.name}】\n`;
             
-            const analyzed = analyzeTracks(parsedTracks);
+            const analyzed = analyzeTracks(parsedTracks).filter(t => t.notes.length > 0);
             const timeSig = extractTimeSignature(parsedTracks);
             const bpm = extractTempo(parsedTracks);
 
             let abcFull = generateAbcHeader(file.name, timeSig, bpm);
 
-            analyzed.forEach((track) => {
-                debugLog += `Track ${track.index}: ${track.isChord ? 'コード' : 'メロディ'} (${track.notes.length}音)\n`;
-                abcFull += `V:${track.index + 1} name="${track.isChord ? 'Chord' : 'Melody'}"\n`;
+            // 有効なトラック（音符あり）だけを回す
+            analyzed.forEach((track, i) => {
+                // 表示上のインデックスを見やすく（Track 1, 2...）
+                const displayIdx = i + 1; 
+                debugLog += `Track ${displayIdx}: ${track.isChord ? 'コード' : 'メロディ'} (${track.notes.length}音)\n`;
+                
+                // ABC記法のボイス番号も連番にする
+                abcFull += `V:${displayIdx} name="${track.isChord ? 'Chord' : 'Melody'}"\n`;
                 abcFull += convertTrackToAbc(track.notes, resolution, timeSig) + "\n";
             });
 

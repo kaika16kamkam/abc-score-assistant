@@ -66,6 +66,38 @@ describe('MIDIファイル読み込みとバリデーションのテスト', () 
     // MIDIファイル自体のトラック数を確認（空トラック含む場合があるため）
     expect(analyzed.length).toBeGreaterThanOrEqual(3);
   });
+
+  it('logic.mid: 音符が含まれない空トラック（Track 0）が除外対象として識別できること', () => {
+    const midiData = parseMidiFile('logic.mid');
+    const analyzed = analyzeTracks(midiData);
+
+    // 全トラックのうち、音符が1つ以上あるトラックのみを抽出
+    const validTracks = analyzed.filter(track => track.notes.length > 0);
+
+    // 今回のケースでは Track 0 が 0音、残り2つに音がある想定
+    expect(analyzed[0].notes.length).toBe(0);
+    expect(validTracks.length).toBe(2); 
+
+    // 有効なトラックがすべて正しく解析されていること
+    validTracks.forEach(track => {
+      expect(track.notes.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('空トラックを除外してABC変換した際、V:1 が空にならないこと', () => {
+    const midiData = parseMidiFile('logic.mid');
+    const resolution = midiData[0].resolution;
+    
+    // 音符があるトラックだけを抽出
+    const validTracks = analyzeTracks(midiData).filter(t => t.notes.length > 0);
+    
+    // 最初の有効なトラック（今回の MIDI では実質的な Track 1）を変換
+    const abc = convertTrackToAbc(validTracks[0].notes, resolution);
+    
+    // ABC文字列が空（z8 | のような休符のみ、または完全に空）でないことを確認
+    // 少なくとも音名が含まれているはず
+    expect(abc).toMatch(/[A-Ga-g]/); 
+  });
 });
 
 describe('ABC音符列生成のテスト', () => {
