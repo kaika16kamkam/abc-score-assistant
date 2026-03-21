@@ -69,15 +69,25 @@ export const generateAbcHeader = (fileName, timeSig = MIDI_CONFIG.DEFAULT_TIME_S
  * @param {object} timeSig 拍子情報 { n: 4, d: 4 } の形式で指定
  * @returns {string} ABC記法のノート部分テキスト
  */
-export const convertTrackToAbc = (notes, resolution, timeSig = MIDI_CONFIG.DEFAULT_TIME_SIG) => {
+export const convertTrackToAbc = (notes, resolution, timeSig = { n: 4, d: 4 }) => {
     if (!notes || notes.length === 0) return "";
 
     let abcString = "";
-    const baseTick = resolution / 2; // 8分音符を基準 L:1/8
+    const baseTick = resolution / 2; // L:1/8 (8分音符基準)
     const ticksPerBar = resolution * timeSig.n; 
     let currentTick = 0; 
+    let barCount = 0; // 小節数をカウントして改行を制御
 
-    // ノートを同じタイミング（tick）でグループ化（和音対応）
+    // 小節線と改行を挿入する共通関数
+    const insertBar = () => {
+        abcString += " | ";
+        barCount++;
+        if (barCount % 4 === 0) {
+            abcString += "\n";
+        }
+    };
+
+    // 1. ノートを同じタイミングでグループ化（和音対応）
     const groups = [];
     notes.forEach(note => {
         const lastGroup = groups[groups.length - 1];
@@ -88,31 +98,59 @@ export const convertTrackToAbc = (notes, resolution, timeSig = MIDI_CONFIG.DEFAU
         }
     });
 
+    // 2. メインループ
     groups.forEach((group, i) => {
-        // 休符の挿入
-        if (group.tick > currentTick) {
-            const restLength = Math.round((group.tick - currentTick) / baseTick);
-            if (restLength > 0) abcString += "z" + (restLength <= 1 ? "" : restLength) + " ";
-            currentTick = group.tick; 
+        
+        // --- A. 次の音符までの「空白（休符）」を埋める ---
+        while (currentTick < group.tick) {
+            const nextBoundary = Math.floor(currentTick / ticksPerBar + 1) * ticksPerBar;
+            const targetTick = Math.min(group.tick, nextBoundary);
+            const duration = targetTick - currentTick;
+
+            if (duration > 0) {
+                const restLen = Math.round(duration / baseTick);
+                if (restLen > 0) abcString += "z" + (restLen <= 1 ? "" : restLen) + " ";
+            }
+
+            currentTick = targetTick;
+            if (currentTick === nextBoundary) insertBar();
         }
 
-        // 音符（単音 or 和音）
+        // --- B. 「音符（単音 or 和音）」を出力する ---
         const notePart = group.notes.length > 1 
             ? `[${group.notes.map(n => getNoteName(n)).join("")}]`
             : getNoteName(group.notes[0]);
 
-        // 長さの計算
-        const durationTicks = (i < groups.length - 1) ? groups[i + 1].tick - group.tick : resolution;
-        const length = Math.round(durationTicks / baseTick);
-        abcString += notePart + (length <= 1 ? "" : length) + " ";
-        currentTick += durationTicks;
+        // この音符のトータルの長さを計算
+        // 次の音の開始位置、なければ1拍分(resolution)確保
+        const nextNoteStart = (i < groups.length - 1) ? groups[i + 1].tick : group.tick + resolution;
+        let remainingDuration = nextNoteStart - group.tick;
 
-        // 小節線
-        if (Math.round(currentTick % ticksPerBar) === 0) {
-            abcString += "| ";
-            if (Math.round(currentTick % (ticksPerBar * 2)) === 0) abcString += "\n";
+        // 音符も小節を跨ぐ場合は分割してタイ(-)で繋ぐ
+        while (remainingDuration > 0) {
+            const nextBoundary = Math.floor(currentTick / ticksPerBar + 1) * ticksPerBar;
+            const currentChunk = Math.min(remainingDuration, nextBoundary - currentTick);
+            
+            const length = Math.round(currentChunk / baseTick);
+            abcString += notePart + (length <= 1 ? "" : length);
+
+            remainingDuration -= currentChunk;
+            currentTick += currentChunk;
+
+            if (currentTick === nextBoundary) {
+                if (remainingDuration > 0) abcString += "-"; // まだ続きがあればタイで繋ぐ
+                insertBar();
+            } else {
+                abcString += " "; // 小節内ならスペースを空ける
+            }
         }
     });
+
+    // 最後に小節線がなければ閉じる
+    if (!abcString.trim().endsWith("|")) {
+        abcString += " |";
+    }
+
     return abcString;
 };
 
