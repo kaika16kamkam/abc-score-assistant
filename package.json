@@ -23,12 +23,11 @@
   "license": "ISC",
   "type": "module",
   "bugs": {
-
-    "vitest": "^4.1.0",
-    "typescript": "^5.9.3"
+    "url": "https://github.com/kaika16kamkam/abc-score-assistant/issues"
   },
-  "dependencies": {
-
+  "homepage": "https://github.com/kaika16kamkam/abc-score-assistant#readme",
+  "devDependencies": {
+    "@types/node": "^25.5.0",
     "vitest": "^4.1.0",
     "typescript": "^5.9.3"
   },
