@@ -7,7 +7,12 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "vitest"
+    "build": "tsc -p tsconfig.json",
+    "build:watch": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "postinstall": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -18,15 +23,15 @@
   "license": "ISC",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/kaika16kamkam/abc-score-assistant/issues"
-  },
-  "homepage": "https://github.com/kaika16kamkam/abc-score-assistant#readme",
-  "devDependencies": {
-    "@types/node": "^25.5.0",
-    "midi-parser-js": "^4.0.4",
-    "vitest": "^4.1.0"
+
+    "vitest": "^4.1.0",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
+
+    "vitest": "^4.1.0",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
   }
 }
