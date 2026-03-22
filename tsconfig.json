@@ -9,7 +9,7 @@
     // See also https://aka.ms/tsconfig/module
     "module": "esnext",
     "target": "esnext",
-    "types": [],
+    "types": ["node", "vitest/globals"],
     // For nodejs:
     // "lib": ["esnext"],
     // "types": ["node"],
@@ -34,7 +34,7 @@
 
     /* ビルド設定 */
     "outDir": "./js",
-    "rootDir": "./src", 
+    "rootDir": "./src",
 
     // Recommended Options
     "esModuleInterop": true,
@@ -44,6 +44,8 @@
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
-    "skipLibCheck": true,
-  }
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["tests", "js", "node_modules"]
 }
