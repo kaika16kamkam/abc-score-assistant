@@ -16,7 +16,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/kaika16kamkam/abc-score-assistant/issues"
   },
@@ -24,5 +24,8 @@
   "devDependencies": {
     "midi-parser-js": "^4.0.4",
     "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "typescript": "^5.9.3"
   }
 }

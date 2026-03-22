@@ -1,3 +1,5 @@
 node_modules/
 .env
 *.log
+js/             # コンパイル後のJSフォルダを除外
+dist/           # Viteなどのビルド成果物も除外

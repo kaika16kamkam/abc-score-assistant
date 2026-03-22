@@ -2,15 +2,17 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 // MidiParser (外部ライブラリ) のインポートを削除し、自前の parseMidiBinary を使用
-import { 
-  generateAbcHeader, 
-  extractTimeSignature,
-  extractTempo, 
-  getNoteName,
+import {
+  generateAbcHeader,
   convertTrackToAbc,
+  getNoteName
+} from '../src/abcConverter.ts';
+import {
+  extractTimeSignature,
+  extractTempo,
   analyzeTracks,
-  parseMidiBinary // 追加
-} from '../js/app.js';
+  parseMidiBinary
+} from '../src/midiUtils.ts';
 
 /**
  * app.js のロジックを使ってファイルをパースするヘルパー
