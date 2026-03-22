@@ -41,7 +41,7 @@ export const convertTrackToAbc = (
 
 	let abcString = "";
 	const baseTick = resolution / 2;
-	const ticksPerBar = resolution * timeSig.n;
+	const ticksPerBar = (resolution * 4 * timeSig.n) / timeSig.d;
 	let currentTick = 0;
 	let barCount = 0;
 
