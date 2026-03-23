@@ -86,6 +86,9 @@ export const parseMidiBinary = (data: Uint8Array): ParsedTrack[] => {
 			let status = reader.readByte();
 
 			if (status < 0x80) {
+				if (lastStatus === 0) {
+					throw new Error("不正なMIDIです: Running Statusのステータスが未初期化です。");
+				}
 				status = lastStatus;
 				reader.pos--;
 			} else {
