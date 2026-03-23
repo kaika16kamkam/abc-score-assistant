@@ -28,9 +28,9 @@
   "homepage": "https://github.com/kaika16kamkam/abc-score-assistant#readme",
   "devDependencies": {
     "@types/node": "^25.5.0",
-    "vitest": "^4.1.0",
-    "typescript": "^5.9.3"
+    "vitest": "^4.1.0"
   },
   "dependencies": {
+    "typescript": "^5.9.3"
   }
 }
