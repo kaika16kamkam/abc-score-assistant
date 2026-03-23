@@ -1,7 +1,11 @@
+import type { TimeSignature } from "./type.js";
+
+const DEFAULT_TIME_SIG: TimeSignature = { n: 4, d: 4 };
+
 // --- 定数定義 ---
 export const MIDI_CONFIG = {
     DEFAULT_BPM: 120,
-    DEFAULT_TIME_SIG: { n: 4, d: 4 },
+    DEFAULT_TIME_SIG,
     MICROSECONDS_PER_MINUTE: 60000000,
     CHORD_THRESHOLD_TICKS: 10
 } as const;

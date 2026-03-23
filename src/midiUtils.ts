@@ -131,6 +131,8 @@ export const parseMidiBinary = (data: Uint8Array): ParsedTrack[] => {
 				reader.pos += 1;
 			} else if (status === MIDI_EVENT.SYSEX_START || status === MIDI_EVENT.SYSEX_END) {
 				reader.pos += reader.readVarInt();
+			} else {
+				throw new Error(`不明なMIDIイベントを検出しました: status=0x${status.toString(16)} at track=${i}, pos=${reader.pos}`);
 			}
 		}
 
