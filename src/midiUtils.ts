@@ -116,8 +116,14 @@ export const parseMidiBinary = (data: Uint8Array): ParsedTrack[] => {
 					};
 					reader.pos += mlen - 2;
 				} else if (metaType === MIDI_META.TEMPO) {
+					if (mlen < 3) {
+						throw new Error(`不正なMIDIです: TEMPOメタイベント長が不正です (mlen=${mlen})`);
+					}
 					const mspb = (reader.readByte() << 16) | (reader.readByte() << 8) | reader.readByte();
 					globalBpm = Math.round(MIDI_CONFIG.MICROSECONDS_PER_MINUTE / mspb);
+					if (mlen > 3) {
+						reader.pos += mlen - 3;
+					}
 				} else {
 					reader.pos += mlen;
 				}
