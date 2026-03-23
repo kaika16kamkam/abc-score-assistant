@@ -70,4 +70,25 @@ describe("abcConverter", () => {
 
         expect(result).toContain("[CEG]2");
     });
+
+    it("小節をまたぐノートはタイで分割される", () => {
+        const notesCrossBar: MidiNote[] = [
+            { tick: 1440, note: 60 },
+            { tick: 2400, note: 62 },
+        ];
+
+        const result = convertTrackToAbc(notesCrossBar, 480);
+
+        expect(result).toMatch(/C2-\s+\|\s+C2/);
+    });
+
+    it("休符も小節境界で分割される", () => {
+        const notesAfterLongRest: MidiNote[] = [
+            { tick: 2400, note: 60 },
+        ];
+
+        const result = convertTrackToAbc(notesAfterLongRest, 480);
+
+        expect(result).toMatch(/z8\s+\|\s+z2\s+C2/);
+    });
 });
