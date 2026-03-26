@@ -118,10 +118,11 @@ export const convertTrackToAbc = (
 			}
 		}
 
-		const notePart =
-			group.notes.length > 1
-				? `[${group.notes.map((n) => normalizeAccidental(getNoteName(n))).join("")}]`
-				: normalizeAccidental(getNoteName(group.notes[0]!));
+		const rawNoteNames = group.notes.map((n) => getNoteName(n));
+		const buildNotePart = (): string =>
+			rawNoteNames.length > 1
+				? `[${rawNoteNames.map((name) => normalizeAccidental(name)).join("")}]`
+				: normalizeAccidental(rawNoteNames[0]!);
 
 		const nextNoteStart = i < groups.length - 1 ? (groups[i + 1]?.tick ?? group.tick + resolution) : group.tick + resolution;
 		let remainingDuration = nextNoteStart - group.tick;
@@ -131,6 +132,7 @@ export const convertTrackToAbc = (
 			const currentChunk = Math.min(remainingDuration, nextBoundary - currentTick);
 
 			const length = Math.round(currentChunk / baseTick);
+			const notePart = buildNotePart();
 			abcString += `${notePart}${length <= 1 ? "" : length}`;
 
 			remainingDuration -= currentChunk;

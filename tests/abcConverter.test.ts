@@ -103,4 +103,15 @@ describe("abcConverter", () => {
         expect(result).toContain("^C2");
         expect(result).toContain("=C2");
     });
+
+    it("小節をまたぐタイ継続でも臨時記号状態を維持できる", () => {
+        const notes: MidiNote[] = [
+            { tick: 1440, note: 61 },
+            { tick: 2400, note: 60 },
+        ];
+
+        const result = convertTrackToAbc(notes, 480);
+
+        expect(result).toMatch(/\^C2-\s+\|\s+\^C2\s+=C2/);
+    });
 });
