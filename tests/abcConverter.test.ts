@@ -91,4 +91,27 @@ describe("abcConverter", () => {
 
         expect(result).toMatch(/z8\s+\|\s+z2\s+C2/);
     });
+
+    it("シャープ後に同音名へ戻るとナチュラルを出力する", () => {
+        const notes: MidiNote[] = [
+            { tick: 0, note: 61 },
+            { tick: 480, note: 60 },
+        ];
+
+        const result = convertTrackToAbc(notes, 480);
+
+        expect(result).toContain("^C2");
+        expect(result).toContain("=C2");
+    });
+
+    it("小節をまたぐタイ継続でも臨時記号状態を維持できる", () => {
+        const notes: MidiNote[] = [
+            { tick: 1440, note: 61 },
+            { tick: 2400, note: 60 },
+        ];
+
+        const result = convertTrackToAbc(notes, 480);
+
+        expect(result).toMatch(/\^C2-\s+\|\s+\^C2\s+=C2/);
+    });
 });
