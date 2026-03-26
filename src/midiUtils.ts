@@ -110,6 +110,9 @@ export const parseMidiBinary = (data: Uint8Array): ParsedTrack[] => {
 				const mlen = reader.readVarInt();
 
 				if (metaType === MIDI_META.TIME_SIGNATURE) {
+					if (mlen < 2) {
+						throw new Error(`不正なMIDIです: TIME_SIGNATUREメタイベント長が不正です (mlen=${mlen})`);
+					}
 					globalTimeSig = {
 						n: reader.readByte(),
 						d: Math.pow(2, reader.readByte()),
