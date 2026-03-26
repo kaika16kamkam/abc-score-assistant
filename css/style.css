@@ -71,6 +71,7 @@ pre {
 }
 
 #copy-status {
+  display: inline-block;
   min-height: 1em;
   font-size: 0.85rem;
   color: #444;

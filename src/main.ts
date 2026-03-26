@@ -81,6 +81,9 @@ const initializeUi = () => {
 		const file = target.files?.[0];
 		if (!file) return;
 
+		copyStatus.style.color = "";
+		copyStatus.textContent = "";
+
 		try {
 			const buffer = new Uint8Array(await file.arrayBuffer());
 			const parsedTracks = parseMidiBinary(buffer);
@@ -115,6 +118,10 @@ const initializeUi = () => {
 		} catch (error) {
 			output.style.color = "red";
 			output.textContent = `解析エラー: ${(error as Error).message}`;
+			copyStatus.style.color = "";
+			copyStatus.textContent = "";
+			abcResult.textContent = "";
+			abcSection.style.display = "none";
 		}
 	};
 };
