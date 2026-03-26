@@ -91,4 +91,16 @@ describe("abcConverter", () => {
 
         expect(result).toMatch(/z8\s+\|\s+z2\s+C2/);
     });
+
+    it("シャープ後に同音名へ戻るとナチュラルを出力する", () => {
+        const notes: MidiNote[] = [
+            { tick: 0, note: 61 },
+            { tick: 480, note: 60 },
+        ];
+
+        const result = convertTrackToAbc(notes, 480);
+
+        expect(result).toContain("^C2");
+        expect(result).toContain("=C2");
+    });
 });

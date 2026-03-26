@@ -44,10 +44,46 @@ export const convertTrackToAbc = (
 	const ticksPerBar = (resolution * 4 * timeSig.n) / timeSig.d;
 	let currentTick = 0;
 	let barCount = 0;
+	const accidentalState = new Map<string, "sharp" | "flat" | "natural">();
+
+	const normalizeAccidental = (noteName: string): string => {
+		const match = noteName.match(/^([_=^]*)([A-Ga-g])([',]*)$/);
+		if (!match) return noteName;
+
+		const accidental = match[1] ?? "";
+		const letter = match[2] ?? "C";
+		const octaveMarks = match[3] ?? "";
+		const pitchKey = `${letter}${octaveMarks}`;
+
+		if (accidental.includes("^")) {
+			accidentalState.set(pitchKey, "sharp");
+			return noteName;
+		}
+
+		if (accidental.includes("_")) {
+			accidentalState.set(pitchKey, "flat");
+			return noteName;
+		}
+
+		if (accidental.includes("=")) {
+			accidentalState.set(pitchKey, "natural");
+			return noteName;
+		}
+
+		const prev = accidentalState.get(pitchKey);
+		if (prev === "sharp" || prev === "flat") {
+			accidentalState.set(pitchKey, "natural");
+			return `=${letter}${octaveMarks}`;
+		}
+
+		accidentalState.set(pitchKey, "natural");
+		return noteName;
+	};
 
 	const insertBar = () => {
 		abcString += " | ";
 		barCount++;
+		accidentalState.clear();
 		if (barCount % 4 === 0) {
 			abcString += "\n";
 		}
@@ -84,8 +120,8 @@ export const convertTrackToAbc = (
 
 		const notePart =
 			group.notes.length > 1
-				? `[${group.notes.map((n) => getNoteName(n)).join("")}]`
-				: getNoteName(group.notes[0]!);
+				? `[${group.notes.map((n) => normalizeAccidental(getNoteName(n))).join("")}]`
+				: normalizeAccidental(getNoteName(group.notes[0]!));
 
 		const nextNoteStart = i < groups.length - 1 ? (groups[i + 1]?.tick ?? group.tick + resolution) : group.tick + resolution;
 		let remainingDuration = nextNoteStart - group.tick;
