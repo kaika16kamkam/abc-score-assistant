@@ -109,6 +109,7 @@ const initializeUi = () => {
 			output.style.color = "";
 			output.textContent = `${debugLog}\n【チェックOK！】`;
 			abcResult.textContent = abcFull;
+			copyStatus.style.color = "";
 			copyStatus.textContent = "";
 			abcSection.style.display = "block";
 		} catch (error) {
