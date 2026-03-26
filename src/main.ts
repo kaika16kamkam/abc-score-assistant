@@ -59,8 +59,8 @@ const initializeUi = () => {
 	const copyStatus = getRequiredElement<HTMLElement>("copy-status");
 
 	copyButton.onclick = async () => {
-		const abcText = abcResult.textContent?.trim();
-		if (!abcText) {
+		const abcText = abcResult.textContent ?? "";
+		if (abcText === "") {
 			copyStatus.style.color = "#a33";
 			copyStatus.textContent = "コピー対象がありません。";
 			return;
