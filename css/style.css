@@ -50,23 +50,38 @@ pre {
 
 .abc-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   margin: 0 0 10px;
 }
 
-#copy-abc-button {
+#copy-abc-button,
+#open-file-button,
+#play-abc-button,
+#stop-abc-button {
   border: none;
   border-radius: 6px;
-  background-color: #4a90e2;
   color: #fff;
   font-size: 0.9rem;
   padding: 8px 14px;
   cursor: pointer;
 }
 
+#copy-abc-button {
+  background-color: #4a90e2;
+}
+
+#open-file-button {
+  background-color: #4a90e2;
+}
+
 #copy-abc-button:hover {
+  background-color: #357bc9;
+}
+
+#open-file-button:hover {
   background-color: #357bc9;
 }
 
@@ -75,4 +90,91 @@ pre {
   min-height: 1em;
   font-size: 0.85rem;
   color: #444;
+}
+
+#copy-abc-button:hover {
+  background-color: #357bc9;
+}
+
+#play-abc-button {
+  background-color: #2e8b57;
+}
+
+#stop-abc-button {
+  background-color: #cc4b37;
+}
+
+#play-abc-button:hover {
+  background-color: #267349;
+}
+
+#stop-abc-button:hover {
+  background-color: #b53f2f;
+}
+
+#play-status {
+  display: inline-block;
+  min-height: 1em;
+  font-size: 0.85rem;
+  color: #444;
+}
+
+.abc-editor {
+  text-align: left;
+}
+
+.debug-log {
+  margin: 0 0 12px;
+}
+
+.debug-log summary {
+  cursor: pointer;
+  color: #2f5f8e;
+  font-size: 0.9rem;
+  user-select: none;
+}
+
+#output {
+  white-space: pre-wrap;
+  margin-top: 8px;
+  border: 1px solid #ddd;
+  padding: 10px;
+  min-height: 50px;
+  background: #fdfdfd;
+  font-size: 0.9em;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+#abc-input {
+  width: 100%;
+  min-height: 220px;
+  border: 2px solid #4a90e2;
+  border-radius: 8px;
+  padding: 12px;
+  box-sizing: border-box;
+  background: #fff;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.status-row {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 1.1em;
+}
+
+.playback-render {
+  margin-top: 12px;
+}
+
+.playback-render-hidden {
+  display: none;
 }

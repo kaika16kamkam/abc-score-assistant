@@ -3,6 +3,8 @@
 <head>
   <meta name="robots" content="noindex">
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'">
+  <meta name="referrer" content="no-referrer">
   <title>ABC SCORE ASSISTANT</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -12,34 +14,44 @@
   </header>
 
   <div class="feature">
-    <h2>MIDI → ABC</h2>
+    <h2>ABC Notation</h2>
 
     <div class="upload-section" id="midiUploadSection">
-      <h3>Upload MIDI(demo)</h3>
       
-      <div class="requirements" style="font-size: 0.85em; color: #444; background: #f0f7ff; padding: 12px; border-radius: 6px; border: 1px solid #cce0ff; margin-bottom: 15px;">
-        <strong style="color: #0056b3;">【現在のシステム仕様・制約】</strong>
-        <ul style="margin: 8px 0 0 0; padding-left: 20px; line-height: 1.6;">
-          <li><strong>トラック構成:</strong> 演奏トラックは合計2つまで（メロディ×1、コード×1）</li>
-          <li><strong>トラック判定:</strong> 和音（同時発音）を含むかどうかで自動判別</li>
-          <li><strong>拍子 (M:):</strong> MIDIイベントから自動抽出（未設定時は 4/4）</li>
-          <li><strong>テンポ (Q:):</strong> MIDIイベントから自動抽出（未設定時は 120）</li>
-          <li><strong>音の長さ (L:):</strong> <code style="background:#eee; padding: 0 3px;">1/8</code> 固定</li>
-          <li><strong>キー (K:):</strong> <code style="background:#eee; padding: 0 3px;">C Major</code> 固定</li>
-        </ul>
+      
+      <div class="abc-editor" style="margin-top: 20px;">
+        <p style="margin: 0 0 10px; color: #555; font-size: 0.9em;">手入力でも、MIDI読み込みによる自動生成でも利用できます。</p>
+        <div class="abc-actions">
+          <button id="open-file-button" type="button">MIDI読み込み</button>
+          <button id="copy-abc-button" type="button">コピー</button>
+          <button id="play-abc-button" type="button">再生</button>
+          <button id="stop-abc-button" type="button">停止</button>
+        </div>
+              <details id="debug-log" class="debug-log">
+                <summary>MIDI読み込み仕様・制約</summary>
+                <div class="requirements" style="font-size: 0.85em; color: #444; background: #f0f7ff; padding: 12px; border-radius: 6px; border: 1px solid #cce0ff; margin-bottom: 15px;">
+                  <strong style="color: #0056b3;">【MIDI読み込み仕様・制約】</strong>
+                  <ul style="margin: 8px 0 0 0; padding-left: 20px; line-height: 1.6;">
+                    <li><strong>トラック構成:</strong> 演奏トラックは合計2つまで（メロディ×1、コード×1）</li>
+                    <li><strong>トラック判定:</strong> 和音（同時発音）を含むかどうかで自動判別</li>
+                    <li><strong>拍子 (M:):</strong> MIDIイベントから自動抽出（未設定時は 4/4）</li>
+                    <li><strong>テンポ (Q:):</strong> MIDIイベントから自動抽出（未設定時は 120）</li>
+                    <li><strong>音の長さ (L:):</strong> <code style="background:#eee; padding: 0 3px;">1/8</code> 固定</li>
+                    <li><strong>キー (K:):</strong> <code style="background:#eee; padding: 0 3px;">C Major</code> 固定</li>
+                  </ul>
+                </div>
+                <pre id="output"></pre>
+              </details>
+        <input type="file" id="file" class="file-input-hidden" accept=".mid,.midi">
+        <textarea id="abc-input" maxlength="50000" spellcheck="false" placeholder="ここにABC記法を入力するか、上のMIDI読み込みで自動生成してください。"></textarea>
+        <div class="status-row">
+          <span id="copy-status" aria-live="polite"></span>
+          <span id="play-status" aria-live="polite"></span>
+        </div>
+        <div id="abc-playback-render" class="playback-render playback-render-hidden" aria-live="polite"></div>
       </div>
 
-      <input type="file" id="file" accept=".mid,.midi">
-      <pre id="output" style="white-space: pre-wrap; margin-top: 15px; border: 1px solid #ddd; padding: 10px; min-height: 50px; background: #fdfdfd; font-size: 0.9em;"></pre>
       
-      <div id="abcSection" style="display: none; margin-top: 20px;">
-        <h3>ABC Notation Result</h3>
-        <div class="abc-actions">
-          <button id="copy-abc-button" type="button">コピー</button>
-          <span id="copy-status" aria-live="polite"></span>
-        </div>
-        <pre id="abc-result" style="white-space: pre-wrap; border: 2px solid #4A90E2; padding: 15px; background: #fff; font-family: 'Courier New', Courier, monospace; overflow-x: auto;"></pre>
-      </div>
     </div>
   </div>
 
@@ -48,11 +60,7 @@
     <p style="color: #888; font-size: 0.9em; padding-left: 10px;">Coming Soon...</p>
   </div>
 
-  <div class="feature">
-    <h2>Play ABC</h2>
-    <p style="color: #888; font-size: 0.9em; padding-left: 10px;">Coming Soon...</p>
-  </div>
-
+<script src="https://cdn.jsdelivr.net/npm/abcjs@6.6.2/dist/abcjs-basic-min.js"></script>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>
