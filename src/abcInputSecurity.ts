@@ -10,6 +10,7 @@ export class AbcSecurityError extends Error {
 	}
 }
 
+// Public web向け: 入力サイズを制限して過負荷や異常入力を抑止する。
 const MAX_ABC_INPUT_CHARS = 50000;
 const MAX_ABC_LINES = 2000;
 const MAX_ABC_LINE_CHARS = 500;
@@ -19,6 +20,12 @@ const looksLikeHtml = (text: string): boolean => /<\s*\/?\s*[a-zA-Z!]/.test(text
 
 const normalizeLineEndings = (text: string): string => text.replace(/\r\n?/g, "\n");
 
+/**
+ * ABC入力文字列を公開サイト向けに最小サニタイズする。
+ * - 制御文字の除去
+ * - サイズ/行数/1行長の制限
+ * - HTMLライクな文字列の拒否
+ */
 export const sanitizeAbcInput = (rawText: string): SanitizedAbcResult => {
 	if (rawText.length > MAX_ABC_INPUT_CHARS) {
 		throw new AbcSecurityError(`入力が長すぎます。${MAX_ABC_INPUT_CHARS.toLocaleString()}文字以下にしてください。`);
