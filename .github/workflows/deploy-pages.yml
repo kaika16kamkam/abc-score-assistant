@@ -45,6 +45,22 @@ jobs:
           cp -R js _site/js
           cp -R assets _site/assets
 
+      - name: Validate artifact before upload
+        run: |
+          set -euo pipefail
+          # 必須ファイル
+          test -f _site/index.html
+          test -f _site/js/main.js
+          test -f _site/css/style.css
+          # 必須ディレクトリ
+          test -d _site/js
+          test -d _site/css
+          test -d _site/assets
+          # 参照整合性チェック（簡易）
+          grep -q 'src="js/main.js"' _site/index.html
+          echo "Artifact validation passed."
+          ls -R _site
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
