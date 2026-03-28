@@ -9,7 +9,6 @@ https://kaika16kamkam.github.io/abc-score-assistant/
 ### 前提
 
 - Node.js / npm が使えること
-- `python3` が使えること
 
 ### 1. 依存パッケージをインストール
 
@@ -28,13 +27,7 @@ npm run build
 ### 3. ローカルサーバーを起動
 
 ```bash
-python3 -m http.server 8000
-```
-
-ブラウザで以下を開いてください。
-
-```text
-http://localhost:8000
+npx vite
 ```
 
 ## 開発時
