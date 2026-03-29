@@ -10,6 +10,7 @@
     "build": "tsc -p tsconfig.json",
     "build:watch": "tsc -p tsconfig.json --watch",
     "pretest": "npm run build",
+    "pretest:coverage": "npm run build",
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "vitest run",
     "test:watch": "vitest",
