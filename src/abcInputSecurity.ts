@@ -16,7 +16,15 @@ const MAX_ABC_LINES = 2000;
 const MAX_ABC_LINE_CHARS = 500;
 const CONTROL_CHAR_REGEX = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 
-const looksLikeHtml = (text: string): boolean => /<\s*\/?\s*[a-zA-Z!]/.test(text);
+const HTML_PAIRED_TAG_REGEX = /<\s*([a-zA-Z][a-zA-Z0-9:-]*)\b[^<>]*>[\s\S]*<\s*\/\s*\1\s*>/i;
+const HTML_DANGEROUS_SINGLE_TAG_REGEX = /<\s*(script|style|iframe|svg|math|object|embed|link|meta|img|base|form|input|button|textarea|select|video|audio)\b[^<>]*\/?>/i;
+const HTML_SPECIAL_NODE_REGEX = /<!--(?:[\s\S]*?)-->|<!DOCTYPE(?:[\s\S]*?)>/i;
+
+const looksLikeHtml = (text: string): boolean => (
+	HTML_PAIRED_TAG_REGEX.test(text)
+	|| HTML_DANGEROUS_SINGLE_TAG_REGEX.test(text)
+	|| HTML_SPECIAL_NODE_REGEX.test(text)
+);
 
 const normalizeLineEndings = (text: string): string => text.replace(/\r\n?/g, "\n");
 
