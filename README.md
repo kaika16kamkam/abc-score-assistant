@@ -52,4 +52,5 @@ GitHub Pages では `.github/workflows/deploy-pages.yml` で `npm run build` を
 This project uses [abcjs](https://github.com/paulrosen/abcjs) (MIT License) for ABC notation rendering and playback.
 
 - Included distribution: `https://cdn.jsdelivr.net/npm/abcjs@6.6.2/dist/abcjs-basic-min.js`
+- Playback soundfonts are fetched from `https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/`
 - Required copyright/license notice is documented in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
