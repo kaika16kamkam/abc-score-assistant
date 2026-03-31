@@ -182,6 +182,7 @@ const initializeUi = () => {
 		} catch (error) {
 			output.style.color = "red";
 			output.textContent = `解析エラー: ${(error as Error).message}`;
+			debugLogPanel.open = true;
 			copyStatus.style.color = "";
 			copyStatus.textContent = "";
 			abcPlayer.stop();
