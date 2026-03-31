@@ -1,4 +1,3 @@
-
 # abc-score-assistant
 
 ### github pages link
@@ -40,6 +39,23 @@ npm run build:watch
 ```
 
 このプロジェクトには `npm start` はなく、`index.html` を静的配信して動かす構成です。
+
+## テストとカバレッジ
+
+通常のテスト実行:
+
+```bash
+npm test
+```
+
+カバレッジ付きテスト実行:
+
+```bash
+npm run test:coverage
+```
+
+実行後、`coverage/` 配下にレポートが出力されます。
+ブラウザで `coverage/index.html` を開くと、HTMLレポートを閲覧できます。
 
 ## GitHub Pages への配信
 

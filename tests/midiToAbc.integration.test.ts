@@ -6,7 +6,7 @@ import { parseMidiFixture } from "./helpers/parseMidiFixture.ts";
 
 describe("midi to abc integration", () => {
     it("空トラック除外後の先頭トラックがABCとして空文字列にならない", () => {
-        const midiData = parseMidiFixture("logic.mid");
+        const midiData = parseMidiFixture("logic_2tracks.mid");
         const resolution = midiData[0]?.resolution;
         const validTracks = analyzeTracks(midiData).filter((track) => track.notes.length > 0);
 

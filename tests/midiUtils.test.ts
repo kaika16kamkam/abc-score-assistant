@@ -29,8 +29,8 @@ describe("midiUtils", () => {
         expect(analyzed.length).toBeGreaterThanOrEqual(3);
     });
 
-    it("logic.mid で空トラックを除外対象として識別できる", () => {
-        const analyzed = analyzeTracks(parseMidiFixture("logic.mid"));
+    it("logic_2tracks.mid で空トラックを除外対象として識別できる", () => {
+        const analyzed = analyzeTracks(parseMidiFixture("logic_2tracks.mid"));
         const validTracks = analyzed.filter((track) => track.notes.length > 0);
 
         expect(analyzed[0]?.notes.length).toBe(0);
