@@ -37,6 +37,7 @@ export class AbcPlayer {
 	private synth: AbcJsSynth | null = null;
 	private sourceAbc = "";
 	private visualObject: unknown | null = null;
+	private playbackGeneration = 0;
 
 	constructor(private readonly renderHost: HTMLElement) {}
 
@@ -84,6 +85,7 @@ export class AbcPlayer {
 		}
 
 		this.stop();
+		const generation = ++this.playbackGeneration;
 
 		if (!this.visualObject) {
 			this.updatePreview();
@@ -96,19 +98,48 @@ export class AbcPlayer {
 		const abcjs = this.getAbcJs();
 
 		const synth = new abcjs.synth.CreateSynth();
-		await synth.init({
-			visualObj: this.visualObject,
-			options: {
-				soundFontUrl: DEFAULT_SOUND_FONT_URL,
-			},
-		});
-		await synth.prime();
-		await synth.start();
 		this.synth = synth;
+
+		try {
+			await synth.init({
+				visualObj: this.visualObject,
+				options: {
+					soundFontUrl: DEFAULT_SOUND_FONT_URL,
+				},
+			});
+			if (this.isPlaybackCanceled(generation)) {
+				return;
+			}
+
+			await synth.prime();
+			if (this.isPlaybackCanceled(generation)) {
+				return;
+			}
+
+			await synth.start();
+			if (this.isPlaybackCanceled(generation)) {
+				this.stopSynthIfCurrent(synth);
+			}
+		} catch (error) {
+			this.stopSynthIfCurrent(synth);
+			throw error;
+		}
 	}
 
 	stop(): void {
+		this.playbackGeneration += 1;
 		if (this.synth) {
+			this.synth.stop();
+			this.synth = null;
+		}
+	}
+
+	private isPlaybackCanceled(generation: number): boolean {
+		return this.playbackGeneration !== generation;
+	}
+
+	private stopSynthIfCurrent(synth: AbcJsSynth): void {
+		if (this.synth === synth) {
 			this.synth.stop();
 			this.synth = null;
 		}
