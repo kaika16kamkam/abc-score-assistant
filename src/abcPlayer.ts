@@ -1,7 +1,14 @@
 type AbcRenderOptions = Record<string, unknown>;
 
+type AbcJsSynthInitOptions = {
+	visualObj: unknown;
+	options?: {
+		soundFontUrl?: string;
+	};
+};
+
 interface AbcJsSynth {
-	init(options: { visualObj: unknown }): Promise<void>;
+	init(options: AbcJsSynthInitOptions): Promise<void>;
 	prime(): Promise<void>;
 	start(): Promise<void>;
 	stop(): void;
@@ -19,6 +26,8 @@ type WindowWithAbcJs = Window & {
 };
 
 const PLAYBACK_RENDER_HIDDEN_CLASS = "playback-render-hidden";
+const DEFAULT_SOUND_FONT_URL =
+	"https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/";
 
 /**
  * abcjsを使った譜面プレビュー/再生の薄いラッパー。
@@ -87,7 +96,12 @@ export class AbcPlayer {
 		const abcjs = this.getAbcJs();
 
 		const synth = new abcjs.synth.CreateSynth();
-		await synth.init({ visualObj: this.visualObject });
+		await synth.init({
+			visualObj: this.visualObject,
+			options: {
+				soundFontUrl: DEFAULT_SOUND_FONT_URL,
+			},
+		});
 		await synth.prime();
 		await synth.start();
 		this.synth = synth;
