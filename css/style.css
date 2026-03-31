@@ -134,9 +134,19 @@ pre {
   user-select: none;
 }
 
+.midi-output-section {
+  margin: 10px 0 12px;
+}
+
+.midi-output-title {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  color: #2f5f8e;
+}
+
 #output {
   white-space: pre-wrap;
-  margin-top: 8px;
+  margin-top: 0;
   border: 1px solid #ddd;
   padding: 10px;
   min-height: 50px;
