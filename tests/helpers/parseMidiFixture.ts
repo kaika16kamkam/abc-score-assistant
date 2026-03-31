@@ -8,7 +8,7 @@ import type { ParsedTrack } from "../../src/type.ts";
 const currentDir = dirname(fileURLToPath(import.meta.url));
 
 export const parseMidiFixture = (fileName: string): ParsedTrack[] => {
-    const filePath = join(currentDir, "../../data", fileName);
+    const filePath = join(currentDir, "../assets/midi", fileName);
     const buffer = readFileSync(filePath);
     return parseMidiBinary(new Uint8Array(buffer));
 };
