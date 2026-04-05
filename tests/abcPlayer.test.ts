@@ -14,6 +14,10 @@ type MockSynth = {
 	stop: ReturnType<typeof vi.fn<() => void>>;
 };
 
+type TestWindow = Window & {
+	ABCJS?: unknown;
+};
+
 function createDeferred(): Deferred {
 	let resolve!: () => void;
 	const promise = new Promise<void>((res) => {
@@ -57,7 +61,11 @@ describe("AbcPlayer", () => {
 	const originalWindow = globalThis.window;
 
 	beforeEach(() => {
-		(globalThis as typeof globalThis & { window: unknown }).window = {};
+		(
+			globalThis as typeof globalThis & {
+				window: Window & typeof globalThis;
+			}
+		).window = {} as unknown as Window & typeof globalThis;
 	});
 
 	afterEach(() => {
@@ -78,7 +86,7 @@ describe("AbcPlayer", () => {
 		};
 		const renderAbcMock = vi.fn(() => [{}]);
 
-		(globalThis.window as { ABCJS: unknown }).ABCJS = {
+		(globalThis.window as unknown as TestWindow).ABCJS = {
 			renderAbc: renderAbcMock,
 			synth: {
 				CreateSynth,
@@ -117,7 +125,7 @@ describe("AbcPlayer", () => {
 			return createSynthMock.mock.calls.length === 1 ? firstSynth : secondSynth;
 		};
 
-		(globalThis.window as { ABCJS: unknown }).ABCJS = {
+		(globalThis.window as unknown as TestWindow).ABCJS = {
 			renderAbc: vi.fn(() => [{}]),
 			synth: {
 				CreateSynth,
